@@ -121,7 +121,7 @@
         </div>
       </div>
       <div class="row" style="gap:8px">
-        <a id="waitlist" class="btn primary" href="#" target="_blank" rel="noreferrer">Join Waitlist</a>
+        <a id="waitlist" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">Join Waitlist</a>
         <button id="btnExportData" class="btn">Export data (JSON)</button>
         <div class="row" style="gap:6px">
           <button id="btnImportData" class="btn" title="Import JSON (you can select multiple files)">Import JSON</button>
@@ -143,6 +143,8 @@
         </select>
         <button id="btnResetFilters" class="btn ghost">Reset filters</button>
         <button id="btnShare" class="btn">Share filters</button>
+        <!-- AI Pick action -->
+        <button id="btnAiPick" class="btn ghost">Ask AI for Best Fit</button>
       </div>
       <div class="row" style="gap:8px">
         <button id="exportCsv" class="btn">Export shortlist CSV</button>
@@ -215,7 +217,7 @@
         <div>
           <label class="muted" for="states">State (optional)</label>
           <input id="states" type="text" placeholder="e.g., TX, CA, NY" style="width:100%;margin-top:6px" />
-          <div class="sub">Comma separated two-letter codes (advanced multi-select).</ndiv>
+          <div class="sub">Comma separated two-letter codes (advanced multi-select).</div>
 
           <div style="margin-top:12px">
             <label class="muted" for="residencySelect">Residency state (for tuition)</label>
@@ -249,24 +251,39 @@
 
   <div id="modal" class="modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px">
     <div class="content" role="dialog" aria-modal="true" aria-labelledby="mTitle" aria-describedby="mDesc" style="max-width:760px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;outline:0">
-      <div class="row"><div><h3 id="mTitle" style="margin:0 0 6px 0"></h3><div class="muted" id="mSub"></div></div>
-        <div class="row" style="gap:6px">
-          <button id="mCopy" class="btn icon" title="Copy program link">Copy</button>
-          <button id="mClose" class="btn">Close</button>
+      <!-- Program detail modal -->
+      <section id="modalDetail" data-modal-section>
+        <div class="row"><div><h3 id="mTitle" style="margin:0 0 6px 0"></h3><div class="muted" id="mSub"></div></div>
+          <div class="row" style="gap:6px">
+            <button id="mCopy" class="btn icon" title="Copy program link">Copy</button>
+            <button id="mClose" class="btn">Close</button>
+          </div>
         </div>
-      </div>
-      <div id="mDesc" style="margin-top:12px"></div>
-      <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px">
-        <div class="box"><div class="muted">Tuition In-State</div><div id="mIn"></div></div>
-        <div class="box"><div class="muted">Tuition Out-of-State</div><div id="mOut"></div></div>
-        <div class="box"><div class="muted">Tuition International</div><div id="mIntl"></div></div>
-        <div class="box" style="grid-column:1/-1"><div class="muted">Min GPA</div><div id="mMinGpa"></div></div>
-        <div class="box" style="grid-column:1/-1"><div class="muted">Test Policy</div><div id="mWaiver"></div></div>
-        <div class="box" style="grid-column:1/-1"><div class="muted">Deadline</div><div id="mDeadline"></div></div>
-      </div>
-      <div class="badges" id="mBadges" style="margin-top:12px"></div>
-      <div class="row" style="gap:8px;margin-top:12px"><a id="mLink" class="btn primary" target="_blank" rel="noreferrer">Open Program Site</a><button id="mSave" class="btn">Save to Shortlist</button></div>
-      <div class="sub" style="margin-top:12px">Demo data for competition. Policies change — verify on official site.</div>
+        <div id="mDesc" style="margin-top:12px"></div>
+        <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px">
+          <div class="box"><div class="muted">Tuition In-State</div><div id="mIn"></div></div>
+          <div class="box"><div class="muted">Tuition Out-of-State</div><div id="mOut"></div></div>
+          <div class="box"><div class="muted">Tuition International</div><div id="mIntl"></div></div>
+          <div class="box" style="grid-column:1/-1"><div class="muted">Min GPA</div><div id="mMinGpa"></div></div>
+          <div class="box" style="grid-column:1/-1"><div class="muted">Test Policy</div><div id="mWaiver"></div></div>
+          <div class="box" style="grid-column:1/-1"><div class="muted">Deadline</div><div id="mDeadline"></div></div>
+        </div>
+        <div class="badges" id="mBadges" style="margin-top:12px"></div>
+        <div class="row" style="gap:8px;margin-top:12px"><a id="mLink" class="btn primary" target="_blank" rel="noopener noreferrer">Open Program Site</a><button id="mSave" class="btn">Save to Shortlist</button></div>
+        <div class="sub" style="margin-top:12px">Demo data for competition. Policies change — verify on official site.</div>
+      </section>
+      <!-- AI Pick modal -->
+      <section id="modalAi" data-modal-section hidden aria-hidden="true">
+        <div class="row"><div><h3 id="aiTitle" style="margin:0 0 6px 0">AI Pick (Best Fit)</h3><div class="muted" id="aiIntro"></div></div>
+          <button id="aiClose" class="btn">Close</button>
+        </div>
+        <div id="aiContent" style="margin-top:12px"></div>
+        <div class="row" id="aiActions" style="gap:8px;margin-top:12px">
+          <a id="aiOpenLink" class="btn primary" target="_blank" rel="noopener noreferrer">Open Program Site</a>
+          <button id="aiSave" class="btn">Save</button>
+          <button id="aiCopy" class="btn ghost">Copy share link</button>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -325,6 +342,13 @@
   function byPopularity(list){ return list.slice().sort((a,b)=>(b.brandScore||0)-(a.brandScore||0)); }
 
   function tuitionOf(p, pr){ if (pr.tuitionType === 'inState'){ if (pr.residencyState && p.state === pr.residencyState) return p.inState; if (typeof p.outState === 'number') return p.outState; return p.international; } if (pr.tuitionType === 'outState') { return (typeof p.outState === 'number') ? p.outState : p.international; } return p.international; }
+  function describeTuitionPreference(pr){
+    switch(pr?.tuitionType){
+      case 'inState': return 'In-State';
+      case 'outState': return 'Out-of-State';
+      default: return 'International';
+    }
+  }
   const debounce = (fn, ms=120)=>{ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
 
   function bucketFor(p){ const t = tuitionOf(p, prefs) || 0; const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null; const gap = g!=null ? (prefs.gpa - g) : 0; const costGap = (prefs.budget||0) - t; if ((g!=null && gap < 0.10) || costGap < -5000) return 'Reach'; if (gap >= 0.30 && costGap >= 0) return 'Safe'; return 'Target'; }
@@ -351,6 +375,159 @@
     penalize.forEach(id=>{ scores.delete(id); }); return {scores, filters}; }
 
   function scoreProgram(p){ const t = tuitionOf(p, prefs); const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null; if (g!=null && g > prefs.gpa + 0.05) return -Infinity; if (typeof t==='number' && t > prefs.budget * 1.4) return -Infinity; let s = 0; s += Math.max(0, 40 - Math.round(Math.max(0, (t||0) - prefs.budget)/1000)); const gGap = g!=null ? (prefs.gpa - g) : 0; s += Math.max(0, Math.round(gGap * 10)); if (prefs.waiver==='any') s += 5; else if (prefs.waiver===(p.waiverType||'')) s += 15; else if ((p.waiverType||'').includes('gpa') && prefs.waiver.includes('gpa')) s += 8; if (prefs.area==='any') s += 5; else if ((p.programType||'').toLowerCase().includes(prefs.area)) s += 18; if (prefs.stateSelect) s += (p.state===prefs.stateSelect ? 10 : 0); if (prefs.states.length) s += (prefs.states.includes(p.state) ? 8 : 0); s += Math.round((p.brandScore||20)/15); if (SEARCH.lastScores && SEARCH.lastScores.has(p.id)) s += SEARCH.lastScores.get(p.id); return s; }
+
+  // ----- AI Pick helpers -----
+  const AI_WEIGHTS = {
+    tuitionUnderBudget: 3.2,
+    tuitionUnderBudgetCap: 28,
+    tuitionPenalty: 35,
+    gpaReward: 55,
+    gpaRewardCap: 24,
+    gpaPenalty: 45,
+    stateMatch: 18,
+    stateMismatch: -12,
+    stemMatch: 14,
+    stemBonus: 4,
+    stemPenalty: -30,
+    aidMatch: 12,
+    aidBonus: 4,
+    aidPenalty: -20,
+    queryBoost: 3.5,
+    queryBoostCap: 15,
+  };
+  function normalizedQueryTokens(pr){ const {must, should, phrases} = parseQuery(pr.query); return [...must, ...should, ...phrases].map(t=>t.toString().toLowerCase()).filter(Boolean); }
+
+  function computeAiPick(candidates, pr = prefs){
+    const prefState = pr || prefs;
+    let pool = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+    if(!pool.length){
+      if(saved.size){
+        const ids = new Set(Array.from(saved));
+        pool = DATA.filter(p=>ids.has(String(p.id)));
+      } else {
+        pool = filterData();
+      }
+    }
+    pool = pool.filter(Boolean);
+    if(!pool.length){
+      return {top:null, top3:[], reasons:[], tradeoffs:[], queryTokens:[]};
+    }
+
+    const tokens = normalizedQueryTokens(prefState);
+    const ranked = pool.map(p=>{
+      let baseScore = scoreProgram(p);
+      if(!Number.isFinite(baseScore)) baseScore = -9999;
+      const tuition = tuitionOf(p, prefState);
+      const gpaMin = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null;
+      const gGap = gpaMin!=null ? (prefState.gpa - gpaMin) : null;
+      let score = baseScore;
+
+      if(Number.isFinite(tuition) && Number.isFinite(prefState.budget)){
+        const gap = prefState.budget - tuition;
+        if(gap >= 0){ score += Math.min(AI_WEIGHTS.tuitionUnderBudgetCap, (gap/1000) * AI_WEIGHTS.tuitionUnderBudget); }
+        if(tuition > prefState.budget * 1.1){ score -= AI_WEIGHTS.tuitionPenalty; }
+      }
+
+      if(gGap!=null){
+        if(gGap >= 0){ score += Math.min(AI_WEIGHTS.gpaRewardCap, gGap * AI_WEIGHTS.gpaReward); }
+        if(p.gpaMin > prefState.gpa + 0.05){ score -= AI_WEIGHTS.gpaPenalty; }
+      }
+
+      if(prefState.stateSelect){ score += (p.state === prefState.stateSelect) ? AI_WEIGHTS.stateMatch : AI_WEIGHTS.stateMismatch; }
+
+      if(prefState.stem){ score += p.stem ? AI_WEIGHTS.stemMatch : AI_WEIGHTS.stemPenalty; }
+      else if(p.stem){ score += AI_WEIGHTS.stemBonus; }
+
+      const hasAid = !!(p.assistantship || p.scholarships);
+      if(prefState.aid){ score += hasAid ? AI_WEIGHTS.aidMatch : AI_WEIGHTS.aidPenalty; }
+      else if(hasAid){ score += AI_WEIGHTS.aidBonus; }
+
+      if(tokens.length){
+        const hay = `${p.program} ${p.school} ${p.city}`.toLowerCase();
+        let hits = 0;
+        tokens.forEach(tok=>{ if(tok && hay.includes(tok)) hits++; });
+        if(hits){ score += Math.min(AI_WEIGHTS.queryBoostCap, hits * AI_WEIGHTS.queryBoost); }
+      }
+
+      return { program:p, score, tieBreaker:p.brandScore||0, tuition, gpaMin, gGap, hasAid };
+    }).sort((a,b)=>{
+      if(b.score === a.score){
+        if(b.tieBreaker === a.tieBreaker){
+          return String(a.program.id).localeCompare(String(b.program.id));
+        }
+        return b.tieBreaker - a.tieBreaker;
+      }
+      return b.score - a.score;
+    });
+
+    const topEntries = ranked.slice(0,3);
+    const topMeta = topEntries[0];
+    if(!topMeta || !topMeta.program){
+      return {top:null, top3:[], reasons:[], tradeoffs:[], queryTokens:tokens};
+    }
+
+    const top = topMeta.program;
+    const reasons = [];
+    const tradeoffs = [];
+    const tuition = topMeta.tuition;
+    const budget = prefState.budget;
+    const tuitionLabel = describeTuitionPreference(prefState);
+
+    if(Number.isFinite(tuition)){
+      if(Number.isFinite(budget) && tuition <= budget){
+        const gap = budget - tuition;
+        const cushion = gap > 0 ? ` (${currency(gap)} under budget)` : '';
+        reasons.push(`Estimated ${tuitionLabel} tuition is ${currency(tuition)}, within your ${currency(budget)} budget${cushion}.`);
+      } else if(Number.isFinite(budget) && tuition > budget){
+        tradeoffs.push(`Tuition is ${currency(tuition)}, above your ${currency(budget)} budget.`);
+      } else {
+        reasons.push(`Estimated ${tuitionLabel} tuition is ${currency(tuition)}.`);
+      }
+    } else {
+      tradeoffs.push('Tuition data is missing — confirm costs directly with the school.');
+    }
+
+    if(topMeta.gpaMin!=null){
+      const gap = prefState.gpa - topMeta.gpaMin;
+      if(gap >= 0.01){ reasons.push(`Minimum GPA ${topMeta.gpaMin.toFixed(2)} gives you a ${gap.toFixed(2)} cushion.`); }
+      else if(topMeta.gpaMin > prefState.gpa + 0.05){ tradeoffs.push(`Minimum GPA ${topMeta.gpaMin.toFixed(2)} is above your ${prefState.gpa.toFixed(2)} target.`); }
+    } else {
+      tradeoffs.push('Program has not published a minimum GPA — double-check admission requirements.');
+    }
+
+    if(prefState.stateSelect){
+      if(top.state === prefState.stateSelect){
+        const name = CODE_TO_NAME[top.state] || top.state;
+        reasons.push(`Located in ${name}, matching your preferred state.`);
+      } else {
+        tradeoffs.push(`${top.school} is in ${CODE_TO_NAME[top.state] || top.state}, not your preferred state.`);
+      }
+    }
+
+    if(prefState.stem){
+      if(top.stem){ reasons.push('STEM-designated program as you requested.'); }
+      else { tradeoffs.push('Not STEM-designated, so OPT/STEM benefits may not apply.'); }
+    } else if(top.stem){
+      reasons.push('STEM-designated for extended OPT eligibility.');
+    }
+
+    if(prefState.aid){
+      if(topMeta.hasAid){ reasons.push('Scholarships or assistantships are flagged for this program.'); }
+      else { tradeoffs.push('No scholarships/assistantships noted — budget accordingly.'); }
+    } else if(topMeta.hasAid){
+      reasons.push('Includes scholarships or assistantships that could offset costs.');
+    }
+
+    if(tokens.length){
+      const hay = `${top.program} ${top.school} ${top.city}`.toLowerCase();
+      const hits = tokens.filter(tok=>tok && hay.includes(tok));
+      if(hits.length){ reasons.push(`Matches your search focus on “${hits.slice(0,3).join('”, “')}”.`); }
+    }
+
+    if(top.deadline){ reasons.push(`Next deadline: ${top.deadline}.`); }
+
+    return { top, top3: topEntries.map(x=>x.program), reasons, tradeoffs, queryTokens:tokens };
+  }
 
   function parseDate(d){ if(!d) return null; const t = Date.parse(d); if(!Number.isNaN(t)) return new Date(t); const try2 = Date.parse(String(d).replace(/\//g,'-')); return Number.isNaN(try2) ? null : new Date(try2); }
 
@@ -384,7 +561,7 @@
           <div class="box"><div class="muted">Deadline</div><div>${esc(p.deadline||'')}</div></div>
         </div>
         <div class="row" style="gap:8px;margin-top:12px">
-          <a href="${p.link||'#'}" target="_blank" rel="noreferrer" class="btn primary">Program Site</a>
+          <a href="${p.link||'#'}" target="_blank" rel="noopener noreferrer" class="btn primary">Program Site</a>
           <button class="btn" data-detail="${p.id}">Details</button>
           <button class="btn" data-save="${p.id}">${savedNow?'Unsave':'Save'}</button>
         </div>
@@ -403,12 +580,131 @@
   function render(){ const guard = tuitionGuard(); const infoParts = []; if (guard.message) infoParts.push(guard.message); const hints = []; if (prefs.area === 'mba' && prefs.stem) hints.push('Most MBAs are not STEM. Uncheck “STEM only” to see MBA results.'); if (prefs.area === 'mba' && prefs.gpa < 3.0) hints.push('Your GPA filter may hide MBAs with 3.0 minimums. Try ≥ 3.0.'); const hasHints = hints.length > 0; if (hasHints) infoParts.push(hints.join(' ')); $('#info').textContent = infoParts.join(' '); const filtered = filterData(); const count = filtered.length; $('#matchCount').textContent = count; let source = filtered; let msg = ''; if (source.length===0){ source = byPopularity(DATA); msg = 'No exact matches for your filters/search. Showing Featured programs instead.'; } const ranked = sortData(source); const top = ranked[0]; const rest = ranked.slice(1, 24); if (!guard.message && !hasHints) $('#info').textContent = msg; $('#topWrap').innerHTML = top ? `<div class="sub" style="margin:6px 0">${prefs.sortBy==='popularity'?'Featured program':'Top match / featured'}</div>` + card(top,true) : ''; $('#listLabel').textContent = ranked.length>1 ? (prefs.sortBy==='tuition'?'Other by budget':'Other options') : ''; if(!rest.length && !top){ $('#list').innerHTML = `<div class="dropzone">No programs yet. Import <code>programs.json</code> files or drop them here.</div>`; } else { $('#list').innerHTML = rest.map(p=>card(p)).join(''); } $$('#list [data-detail], #topWrap [data-detail]').forEach(b=>b.addEventListener('click', e=>openDetail(parseInt(e.currentTarget.getAttribute('data-detail'))))); $$('#list [data-save], #topWrap [data-save]').forEach(b=>b.addEventListener('click', e=>saveToggle(e.currentTarget.getAttribute('data-save')))); autoCompact(); }
 
   let lastFocused = null;
-  function openDetail(id){ const p = DATA.find(x=>String(x.id)===String(id)); if(!p) return; lastFocused = document.activeElement; $('#mTitle').textContent = p.program; $('#mSub').textContent = `${p.school} • ${p.city}, ${p.state}`; $('#mDesc').textContent = p.desc||''; $('#mIn').textContent = typeof p.inState==='number'?currency(p.inState):'—'; $('#mOut').textContent = typeof p.outState==='number'?currency(p.outState):'—'; $('#mIntl').textContent = typeof p.international==='number'?currency(p.international):'—'; $('#mMinGpa').textContent = fmtMinGpa(p.gpaMin); $('#mWaiver').textContent = p.waiver||''; $('#mDeadline').textContent = p.deadline||''; const badges = []; if(p.stem) badges.push('<span class="badge">STEM</span>'); if(p.scholarships||p.assistantship) badges.push('<span class="badge">Scholarships/TA</span>'); badges.push('<span class="badge">'+(p.portal||'Institution')+'</span>'); if(p.brandScore) badges.push('<span class="badge">Brand ★ '+p.brandScore+'</span>'); $('#mBadges').innerHTML = badges.join(''); $('#mLink').href = p.link||'#'; const btn = $('#mSave'); btn.textContent = isSaved(p.id) ? 'Remove from Shortlist' : 'Save to Shortlist'; btn.onclick = ()=>{ saveToggle(p.id); btn.textContent = isSaved(p.id) ? 'Remove from Shortlist' : 'Save to Shortlist'; }; $('#mCopy').onclick = async ()=>{ try{ await navigator.clipboard.writeText(p.link||location.href); toast('Link copied'); }catch{ toast('Copy blocked'); } }; $('#modal').style.display='flex'; trapFocus($('#modal')); }
-  function closeModal(){ $('#modal').style.display='none'; releaseFocus(); if(lastFocused) lastFocused.focus(); }
+  let lastAiResult = null;
+
+  function showModalSection(sectionId){
+    const sections = $$('#modal [data-modal-section]');
+    sections.forEach(sec=>{
+      const isActive = sec.id === sectionId;
+      sec.hidden = !isActive;
+      sec.setAttribute('aria-hidden', String(!isActive));
+    });
+    const dialog = $('#modal .content');
+    if(!dialog) return;
+    if(sectionId === 'modalAi'){
+      dialog.setAttribute('aria-labelledby', 'aiTitle');
+      dialog.setAttribute('aria-describedby', 'aiIntro');
+    } else {
+      dialog.setAttribute('aria-labelledby', 'mTitle');
+      dialog.setAttribute('aria-describedby', 'mDesc');
+    }
+  }
+
+  function openDetail(id){ const p = DATA.find(x=>String(x.id)===String(id)); if(!p) return; lastFocused = document.activeElement; showModalSection('modalDetail'); $('#mTitle').textContent = p.program; $('#mSub').textContent = `${p.school} • ${p.city}, ${p.state}`; $('#mDesc').textContent = p.desc||''; $('#mIn').textContent = typeof p.inState==='number'?currency(p.inState):'—'; $('#mOut').textContent = typeof p.outState==='number'?currency(p.outState):'—'; $('#mIntl').textContent = typeof p.international==='number'?currency(p.international):'—'; $('#mMinGpa').textContent = fmtMinGpa(p.gpaMin); $('#mWaiver').textContent = p.waiver||''; $('#mDeadline').textContent = p.deadline||''; const badges = []; if(p.stem) badges.push('<span class="badge">STEM</span>'); if(p.scholarships||p.assistantship) badges.push('<span class="badge">Scholarships/TA</span>'); badges.push('<span class="badge">'+(p.portal||'Institution')+'</span>'); if(p.brandScore) badges.push('<span class="badge">Brand ★ '+p.brandScore+'</span>'); $('#mBadges').innerHTML = badges.join(''); $('#mLink').href = p.link||'#'; const btn = $('#mSave'); btn.textContent = isSaved(p.id) ? 'Remove from Shortlist' : 'Save to Shortlist'; btn.onclick = ()=>{ saveToggle(p.id); btn.textContent = isSaved(p.id) ? 'Remove from Shortlist' : 'Save to Shortlist'; }; $('#mCopy').onclick = async ()=>{ try{ await navigator.clipboard.writeText(p.link||location.href); toast('Link copied'); }catch{ toast('Copy blocked'); } }; $('#modal').style.display='flex'; trapFocus($('#modal')); }
+  function closeModal(){ $('#modal').style.display='none'; releaseFocus(); if(lastFocused) lastFocused.focus(); lastAiResult = null; }
 
   let previousFocusHandlers = [];
   function trapFocus(container){ const focusable = container.querySelectorAll('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'); const first = focusable[0]; const last = focusable[focusable.length-1]; function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); closeModal(); return; } if(e.key!=='Tab') return; if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); } } previousFocusHandlers.push(onKey); document.addEventListener('keydown', onKey); first && first.focus(); }
   function releaseFocus(){ const fn = previousFocusHandlers.pop(); if(fn) document.removeEventListener('keydown', fn); }
+  function resetModalFocusTrap(){ if($('#modal').style.display==='flex'){ releaseFocus(); trapFocus($('#modal')); } }
+
+  function buildAiTopCard(p, pr, tokens){
+    const queryTokens = Array.isArray(tokens) ? tokens : [];
+    const tuition = tuitionOf(p, pr);
+    const tuitionText = Number.isFinite(tuition) ? currency(tuition) : '—';
+    const tuitionLabel = describeTuitionPreference(pr);
+    const badges = [];
+    if(p.stem) badges.push('<span class="badge">STEM</span>');
+    if(p.scholarships||p.assistantship) badges.push('<span class="badge">Scholarships/TA</span>');
+    if(p.brandScore) badges.push('<span class="badge">Brand ★ '+esc(p.brandScore)+'</span>');
+    const badgesHtml = badges.length ? `<div class="badges" style="margin-top:8px">${badges.join('')}</div>` : '';
+    return `
+      <article class="card glass">
+        <div class="row" style="align-items:flex-start">
+          <div>
+            <div style="font-weight:700;font-size:22px">${hiTokens(p.program,queryTokens)}</div>
+            <div class="muted">${hiTokens(p.school,queryTokens)} • ${hiTokens(p.city,queryTokens)}, ${esc(p.state)}</div>
+            ${badgesHtml}
+          </div>
+          <div style="text-align:right">
+            <div class="muted">Tuition (${tuitionLabel})</div>
+            <div style="font-weight:700;font-size:22px">${tuitionText}</div>
+            <div class="muted" style="margin-top:6px">Min GPA ${fmtMinGpa(p.gpaMin)}</div>
+          </div>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px">
+          <div class="box"><div class="muted">Test Policy</div><div>${esc(p.waiver||'—')}</div></div>
+          <div class="box"><div class="muted">Deadline</div><div>${esc(p.deadline||'—')}</div></div>
+        </div>
+      </article>`;
+  }
+
+  function buildAiComparisonTable(programs, pr){
+    if(!programs || !programs.length) return '';
+    const rows = programs.map((p, idx)=>{
+      const tuition = tuitionOf(p, pr);
+      const tuitionText = Number.isFinite(tuition) ? currency(tuition) : '—';
+      const programCell = idx===0 ? `<strong>${esc(p.program)}</strong>` : esc(p.program);
+      const location = `${esc(p.school)} • ${esc(p.city)}, ${esc(p.state)}`;
+      const rowStyle = idx===0 ? ' style="background:rgba(255,255,255,.05)"' : '';
+      return `<tr${rowStyle}><td style="padding:10px;border-bottom:1px solid var(--border);">${programCell}<div class="muted" style="font-size:12px">${location}</div></td><td style="padding:10px;border-bottom:1px solid var(--border);">${tuitionText}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${fmtMinGpa(p.gpaMin)}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${esc(p.waiver||'—')}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${p.stem?'Yes':'No'}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${esc(p.deadline||'—')}</td></tr>`;
+    }).join('');
+    return `<section style="margin-top:16px"><h4 style="margin:0 0 6px 0">Compare Top 3</h4><div class="box" style="overflow-x:auto;padding:0"><table style="width:100%;border-collapse:collapse"><thead><tr><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Program</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Tuition</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Min GPA</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Waiver</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">STEM</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Deadline</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  }
+
+  function populateAiModal(result){
+    lastAiResult = result;
+    showModalSection('modalAi');
+    const intro = $('#aiIntro');
+    if(intro) intro.textContent = saved.size ? 'Based on your shortlisted programs.' : 'Based on your current filters and search.';
+    const content = $('#aiContent');
+    const openLink = $('#aiOpenLink');
+    const saveBtn = $('#aiSave');
+    const copyBtn = $('#aiCopy');
+    if(!content || !openLink || !saveBtn || !copyBtn) return;
+
+    if(!result || !result.top){
+      content.innerHTML = '<div class="box" role="status">No solid matches. Try raising budget by $5k or lowering GPA threshold by 0.1.</div>';
+      openLink.style.display = 'none';
+      openLink.dataset.disabled = 'true';
+      openLink.setAttribute('aria-disabled','true');
+      openLink.tabIndex = -1;
+      saveBtn.style.display = 'none';
+      copyBtn.disabled = false;
+      copyBtn.setAttribute('aria-disabled','false');
+      if($('#modal').style.display==='flex'){ resetModalFocusTrap(); }
+      return;
+    }
+
+    openLink.style.display = '';
+    saveBtn.style.display = '';
+    const hasLink = !!result.top.link;
+    openLink.href = hasLink ? result.top.link : '#';
+    openLink.dataset.disabled = hasLink ? 'false' : 'true';
+    openLink.setAttribute('aria-disabled', hasLink ? 'false' : 'true');
+    openLink.tabIndex = hasLink ? 0 : -1;
+
+    const tokens = result.queryTokens || [];
+    const reasonsHtml = result.reasons.length ? `<section style="margin-top:16px"><h4 style="margin:0 0 6px 0">Why this fits you</h4><ul style="margin:0;padding-left:18px">${result.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></section>` : '';
+    const tradeoffsHtml = result.tradeoffs.length ? `<section style="margin-top:16px"><h4 style="margin:0 0 6px 0">Heads-up</h4><ul style="margin:0;padding-left:18px">${result.tradeoffs.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></section>` : '';
+    const compareHtml = buildAiComparisonTable(result.top3, prefs);
+    content.innerHTML = `${buildAiTopCard(result.top, prefs, tokens)}${reasonsHtml}${tradeoffsHtml}${compareHtml}`;
+
+    const savedNow = isSaved(result.top.id);
+    saveBtn.textContent = savedNow ? 'Unsave' : 'Save';
+    saveBtn.dataset.programId = result.top.id;
+    copyBtn.disabled = false;
+    copyBtn.setAttribute('aria-disabled','false');
+    if($('#modal').style.display==='flex'){ resetModalFocusTrap(); }
+  }
+
+  function openAiPick(){
+    lastFocused = document.activeElement;
+    const result = computeAiPick(null, prefs);
+    populateAiModal(result);
+    $('#modal').style.display = 'flex';
+    resetModalFocusTrap();
+  }
 
   function exportData(){ const payload = JSON.stringify(DATA,null,2); downloadBlob(payload, 'application/json', 'programs.json'); }
   function sanitizeProgram(raw){ const p = {...raw}; const toNum = v=>{ if (v === '' || v == null) return undefined; const n = typeof v === 'number' ? v : Number(v); return Number.isFinite(n) ? n : undefined; }; p.id = (raw.id!=null?String(raw.id):'').trim()||undefined; if(!p.id){ p.id = Date.now().toString(36)+Math.random().toString(36).slice(2,8); } const g = typeof raw.gpaMin==='number' ? raw.gpaMin : parseFloat(raw.gpaMin); p.gpaMin = isKnownMinGpa(g) ? +g : undefined; p.inState = toNum(p.inState); p.outState = toNum(p.outState); p.international = toNum(p.international); p.brandScore = toNum(p.brandScore); p.school = (p.school||'').trim(); p.program = (p.program||'').trim(); p.city = (p.city||'').trim(); p.state = normalizeStateToken(p.state||''); p.programType = (p.programType||'').toString().toLowerCase(); return p; }
@@ -430,6 +726,9 @@
   function downloadBlob(content, mime, filename){ const blob = new Blob([content], {type:mime}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href); }
 
   function prefsToQuery(){ const q = new URLSearchParams(); for(const [k,v] of Object.entries(prefs)){ if(k==='query' && !v) continue; if(k==='states' && Array.isArray(v) && v.length===0) continue; if(k==='residencyState' && !v) continue; if(k==='stateSelect' && !v) continue; if(Array.isArray(v)) q.set(k, v.join(',')); else q.set(k, String(v)); } return q.toString(); }
+  function buildShareUrl(){ const base = location.origin?.startsWith('http') ? (location.origin + location.pathname) : location.href.split('?')[0]; return base + '?' + prefsToQuery(); }
+  async function copyShareLink(){ try{ await navigator.clipboard.writeText(buildShareUrl()); toast('Share link copied'); }catch{ toast('Copy blocked'); } }
+
   function applyQueryToPrefs(){ const url = new URL(location.href); const q = url.searchParams; const get = (k,d)=> q.get(k) ?? d; prefs.gpa = parseFloat(get('gpa', prefs.gpa)) || prefs.gpa; prefs.budget = parseInt(get('budget', prefs.budget)) || prefs.budget; prefs.tuitionType = get('tuitionType', prefs.tuitionType); prefs.waiver = get('waiver', prefs.waiver); prefs.area = get('area', prefs.area); const sel = normalizeStateToken(get('stateSelect','') || ''); prefs.stateSelect = sel; if (sel) { prefs.states = [sel]; } else { prefs.states = normalizeStateList(get('states','') || ''); } prefs.residencyState = normalizeStateToken(get('residencyState','') || ''); prefs.stem = get('stem', String(prefs.stem)) === 'true'; prefs.aid = get('aid',  String(prefs.aid))  === 'true'; prefs.query = get('query', prefs.query) || ''; prefs.sortBy = get('sortBy', prefs.sortBy); }
   function updateUrl(){ try{ history.replaceState(null, '', '?' + prefsToQuery()); }catch{} }
 
@@ -440,7 +739,47 @@
 
   function hydrateControls(){ $('#gpa').value = prefs.gpa; $('#gpaVal').textContent=prefs.gpa.toFixed(2); $('#budget').value = prefs.budget; $('#budgetVal').textContent=currency(prefs.budget); $('#area').value = prefs.area; $('#waiver').value = prefs.waiver; $('#stateSelect').value = prefs.stateSelect || ''; $('#states').value = prefs.states.join(', '); $('#residencySelect').value= prefs.residencyState || ''; $('#stem').checked = prefs.stem; $('#aid').checked = prefs.aid; $('#query').value = prefs.query; $('#sort').value = prefs.sortBy; $$('.pill').forEach(x=>{ const val=x.getAttribute('data-tuition'); const on = val===prefs.tuitionType; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); }); }
   function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display='none', 2400); }
-  function initEvents(){ const rRender = debounce(()=>{ persistPrefs(); updateUrl(); render(); }, 60); $('#gpa').addEventListener('input', e=>{ prefs.gpa=parseFloat(e.target.value); $('#gpaVal').textContent=prefs.gpa.toFixed(2); rRender(); }); $('#budget').addEventListener('input', e=>{ prefs.budget=parseInt(e.target.value); $('#budgetVal').textContent=currency(prefs.budget); rRender(); }); $$('.pill').forEach(b=>b.addEventListener('click', e=>{ $$('.pill').forEach(x=>{x.classList.remove('active'); x.setAttribute('aria-pressed','false');}); e.currentTarget.classList.add('active'); e.currentTarget.setAttribute('aria-pressed','true'); prefs.tuitionType=e.currentTarget.getAttribute('data-tuition'); rRender(); })); $('#area').addEventListener('change', e=>{ prefs.area=e.target.value; rRender(); }); $('#waiver').addEventListener('change', e=>{ prefs.waiver=e.target.value; rRender(); }); $('#stateSelect').addEventListener('change', e=>{ prefs.stateSelect = normalizeStateToken(e.target.value); prefs.states = prefs.stateSelect ? [prefs.stateSelect] : []; $('#states').value = prefs.states.join(', '); rRender(); }); $('#states').addEventListener('input', debounce(e=>{ prefs.states = normalizeStateList(e.target.value); prefs.stateSelect = (prefs.states.length===1) ? prefs.states[0] : ''; $('#stateSelect').value = prefs.stateSelect || ''; rRender(); }, 180)); $('#residencySelect').addEventListener('change', e=>{ prefs.residencyState = normalizeStateToken(e.target.value); rRender(); }); $('#stem').addEventListener('change', e=>{ prefs.stem=e.target.checked; rRender(); }); $('#aid').addEventListener('change', e=>{ prefs.aid=e.target.checked; rRender(); }); $('#query').addEventListener('input', debounce(e=>{ prefs.query=e.target.value; rRender(); }, 120)); $('#sort').addEventListener('change', e=>{ prefs.sortBy=e.target.value; rRender(); }); $('#exportCsv').addEventListener('click', exportShortlistCSV); $('#exportJson').addEventListener('click', exportShortlistJSON); $('#clearShortlist').addEventListener('click', ()=>{ if(confirm('Clear shortlist?')){ saved.clear(); persistSaved(); updateSavedExport(); render(); } }); $('#btnExportData').addEventListener('click', exportData); $('#btnImportData').addEventListener('click', ()=>document.getElementById('fileInput').click()); $('#btnPasteData').addEventListener('click', pasteDataFromClipboard); $('#btnResetData').addEventListener('click', ()=>{ if(!confirm('Reset filters and reload the built-in demo programs?')) return; localStorage.removeItem('gc_dataset'); localStorage.removeItem('gc_saved_ids'); localStorage.removeItem('gc_prefs_v2'); saved.clear(); prefs = { ...DEFAULT_PREFS }; DATA  = DEFAULT_DATA.slice(); buildIndex(); hydrateControls(); updateSavedExport(); refreshCount(); persistPrefs(); updateUrl(); render(); }); document.getElementById('fileInput').addEventListener('change', async e=>{ const files = e.target.files; if(files && files.length) await importFiles(files); e.target.value=''; }); document.getElementById('mClose').addEventListener('click', closeModal); document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); }); document.addEventListener('keydown', e=>{ if(e.key==='/' && document.activeElement!==$('#query')){ e.preventDefault(); $('#query').focus(); $('#query').select(); } if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='c'){ if(document.activeElement===document.body){ const base = location.origin?.startsWith('http')? (location.origin + location.pathname) : location.href.split('?')[0]; const url = base + '?' + prefsToQuery(); navigator.clipboard.writeText(url).then(()=>toast('Share link copied')); } } if(e.key==='Escape'){ closeModal(); } }); }
+  function initEvents(){
+    const rRender = debounce(()=>{ persistPrefs(); updateUrl(); render(); }, 60);
+
+    $('#gpa').addEventListener('input', e=>{ prefs.gpa=parseFloat(e.target.value); $('#gpaVal').textContent=prefs.gpa.toFixed(2); rRender(); });
+    $('#budget').addEventListener('input', e=>{ prefs.budget=parseInt(e.target.value); $('#budgetVal').textContent=currency(prefs.budget); rRender(); });
+    $$('.pill').forEach(b=>b.addEventListener('click', e=>{ $$('.pill').forEach(x=>{x.classList.remove('active'); x.setAttribute('aria-pressed','false');}); e.currentTarget.classList.add('active'); e.currentTarget.setAttribute('aria-pressed','true'); prefs.tuitionType=e.currentTarget.getAttribute('data-tuition'); rRender(); }));
+    $('#area').addEventListener('change', e=>{ prefs.area=e.target.value; rRender(); });
+    $('#waiver').addEventListener('change', e=>{ prefs.waiver=e.target.value; rRender(); });
+    $('#stateSelect').addEventListener('change', e=>{ prefs.stateSelect = normalizeStateToken(e.target.value); prefs.states = prefs.stateSelect ? [prefs.stateSelect] : []; $('#states').value = prefs.states.join(', '); rRender(); });
+    $('#states').addEventListener('input', debounce(e=>{ prefs.states = normalizeStateList(e.target.value); prefs.stateSelect = (prefs.states.length===1) ? prefs.states[0] : ''; $('#stateSelect').value = prefs.stateSelect || ''; rRender(); }, 180));
+    $('#residencySelect').addEventListener('change', e=>{ prefs.residencyState = normalizeStateToken(e.target.value); rRender(); });
+    $('#stem').addEventListener('change', e=>{ prefs.stem=e.target.checked; rRender(); });
+    $('#aid').addEventListener('change', e=>{ prefs.aid=e.target.checked; rRender(); });
+    $('#query').addEventListener('input', debounce(e=>{ prefs.query=e.target.value; rRender(); }, 120));
+    $('#sort').addEventListener('change', e=>{ prefs.sortBy=e.target.value; rRender(); });
+    $('#exportCsv').addEventListener('click', exportShortlistCSV);
+    $('#exportJson').addEventListener('click', exportShortlistJSON);
+    $('#clearShortlist').addEventListener('click', ()=>{ if(confirm('Clear shortlist?')){ saved.clear(); persistSaved(); updateSavedExport(); render(); } });
+    $('#btnExportData').addEventListener('click', exportData);
+    $('#btnImportData').addEventListener('click', ()=>document.getElementById('fileInput').click());
+    $('#btnPasteData').addEventListener('click', pasteDataFromClipboard);
+    $('#btnResetData').addEventListener('click', ()=>{ if(!confirm('Reset filters and reload the built-in demo programs?')) return; localStorage.removeItem('gc_dataset'); localStorage.removeItem('gc_saved_ids'); localStorage.removeItem('gc_prefs_v2'); saved.clear(); prefs = { ...DEFAULT_PREFS }; DATA  = DEFAULT_DATA.slice(); buildIndex(); hydrateControls(); updateSavedExport(); refreshCount(); persistPrefs(); updateUrl(); render(); });
+
+    $('#btnShare').addEventListener('click', ()=>{ copyShareLink(); });
+    $('#btnAiPick').addEventListener('click', openAiPick);
+
+    document.getElementById('fileInput').addEventListener('change', async e=>{ const files = e.target.files; if(files && files.length) await importFiles(files); e.target.value=''; });
+    document.getElementById('mClose').addEventListener('click', closeModal);
+    document.getElementById('aiClose').addEventListener('click', closeModal);
+    document.getElementById('aiCopy').addEventListener('click', ()=>{ copyShareLink(); });
+    document.getElementById('aiOpenLink').addEventListener('click', e=>{ if(e.currentTarget.dataset.disabled==='true'){ e.preventDefault(); toast('Program link unavailable'); } });
+    document.getElementById('aiSave').addEventListener('click', ()=>{ if(!lastAiResult || !lastAiResult.top) return; const targetId = lastAiResult.top.id; saveToggle(targetId); const updated = computeAiPick(null, prefs); populateAiModal(updated); });
+
+    document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+
+    document.addEventListener('keydown', e=>{
+      if(e.key==='/' && document.activeElement!==$('#query')){ e.preventDefault(); $('#query').focus(); $('#query').select(); }
+      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='c'){ if(document.activeElement===document.body){ copyShareLink(); } }
+      if(e.key==='Escape'){ closeModal(); }
+    });
+  }
 
   function init(){ $('#year').textContent = new Date().getFullYear(); $('#waitlist').href = WAITLIST_URL; populateStatesInto('#stateSelect'); populateStatesInto('#residencySelect'); applyQueryToPrefs(); hydrateControls(); updateSavedExport(); refreshCount(); setupDragAndDrop(); initEvents(); buildIndex(); const candidates = ['programs.json','programs_extra.json','programs2.json']; Promise.allSettled(candidates.map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(results=>{ let merged = 0; results.forEach(res=>{ const arr = res?.value; if(Array.isArray(arr) && arr.length){ const {added} = mergePrograms(arr); merged += added; } }); if(merged>0){ localStorage.setItem('gc_dataset', JSON.stringify(DATA)); refreshCount(); buildIndex(); } render(); }).catch(()=>{ render(); }); }
 
