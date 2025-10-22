@@ -37,38 +37,79 @@ Score 0–100 by how well they match the user.`;
 Data:
 ${digest}`;
 
-    const aiRes = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-5",
-        input: [{ role: "system", content: system }, { role: "user", content: user }],
-        response_format: { type: "json" },
-        max_output_tokens: 800,
-      }),
-    });
+    // ---- OpenAI: score + summarize Tavily results ----
+const OPENAI_URL = "https://api.openai.com/v1/responses";
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-    if (!aiRes.ok) throw new Error("OpenAI failed");
-    const data = await aiRes.json();
-
-    let items = [];
-    try {
-      items = JSON.parse(data.output[0].content[0].text);
-    } catch (e) {}
-
-    const top = (Array.isArray(items) ? items : []).sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 3);
-
-    return new Response(JSON.stringify({ ok: true, top }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+if (!OPENAI_KEY) {
+  throw new Error("Missing OPENAI_API_KEY");
 }
+
+const system = `
+You are a program-matching assistant. Return pure JSON.
+Schema:
+{
+  "ok": true,
+  "programs": [
+    {
+      "name": "string",
+      "school": "string",
+      "tuition": "number",
+      "url": "string",
+      "why": "string"
+    }
+  ],
+  "notes": "string"
+}
+Rules:
+- 3 items max in "programs".
+- tuition is an annual USD estimate (number).
+- Only include real results from the provided web snippets.
+`;
+
+const user = \`User: GPA ${gpa}, budget $${budget}, field ${program}.
+Use these web snippets to pick the best 3 programs and explain why each fits (budget/GPA/policy).
+Return JSON only (no markdown). Snippets: ${JSON.stringify(snippets)}\`;
+
+const aiRes = await fetch(OPENAI_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": \`Bearer ${OPENAI_KEY}\`
+  },
+  body: JSON.stringify({
+    model: "gpt-4o-mini", // safe model for production
+    input: [
+      { role: "system", content: system },
+      { role: "user", content: user }
+    ],
+    max_output_tokens: 800
+  })
+});
+
+if (!aiRes.ok) {
+  const errText = await aiRes.text().catch(() => "");
+  throw new Error(\`OpenAI HTTP ${aiRes.status}: ${errText}\`);
+}
+
+const data = await aiRes.json();
+const text =
+  data?.output_text ||
+  data?.output?.[0]?.content?.[0]?.text ||
+  "";
+
+let json;
+try {
+  json = JSON.parse(text);
+} catch {
+  const m = text.match(/\{[\s\S]*\}/);
+  json = m ? JSON.parse(m[0]) : { ok: false, error: "Could not parse AI JSON" };
+}
+
+if (!json || json.ok === false) {
+  throw new Error("AI returned no programs");
+}
+
+return new Response(JSON.stringify(json), {
+  headers: { "Content-Type": "application/json" }
+});
