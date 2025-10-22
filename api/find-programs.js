@@ -12,9 +12,10 @@ const json = (obj, status = 200) =>
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      // simple CORS so you can call this from your site
+      // CORS so you can call this from your site
       "access-control-allow-origin": "*",
       "access-control-allow-methods": "GET, OPTIONS",
+      "access-control-allow-headers": "Content-Type, Authorization",
     },
   });
 
@@ -42,7 +43,7 @@ export default async function handler(req) {
 
     const tRes = await fetch(TAVILY_URL, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${tavilyKey}` },
+      headers: { "content-type": "application/json", Authorization: `Bearer ${tavilyKey}` },
       body: JSON.stringify({
         query,
         search_depth: "advanced",
@@ -73,34 +74,59 @@ export default async function handler(req) {
     const openaiKey = process.env.OPENAI_API_KEY;
     if (!openaiKey) return json({ ok: false, error: "Missing OPENAI_API_KEY" }, 500);
 
-    // Use distinct variable names (avoid redeclare errors)
     const systemMsg =
-      `You are GradChoice AI. Return **pure JSON** only (no markdown). ` +
+      `You are GradChoice AI. Return pure JSON only (no markdown). ` +
       `Extract up to 3 graduate programs from the provided web snippets and rank them by fit. ` +
-      `Schema:\n` +
-      `{\n  "ok": true,\n  "programs": [\n    {\n      "name": "string", // program name\n      "school": "string",\n      "tuition": number,   // annual USD estimate\n      "url": "string",\n      "minGpa": "string|null",\n      "testPolicy": "string|null",\n      "stem": boolean,\n      "deadline": "string|null",\n      "why": "string",\n      "score": number      // 0-100\n    }\n  ],\n  "notes": "string"\n}\n` +
-      `Rules:\n- 3 items max in "programs".\n- Only use content supported by the snippets.\n- If data is unknown, set a sensible null/unknown value.\n- Tuition must be a number (no $ or commas).`;
+      `Schema:
+{
+  "ok": true,
+  "programs": [
+    {
+      "name": "string",
+      "school": "string",
+      "tuition": number,      // annual USD estimate, numeric
+      "url": "string",
+      "minGpa": "string|null",
+      "testPolicy": "string|null",
+      "stem": boolean,
+      "deadline": "string|null",
+      "why": "string",
+      "score": number         // 0-100
+    }
+  ],
+  "notes": "string"
+}
+Rules:
+- Max 3 items in "programs".
+- Only include claims supported by the snippets.
+- If a field is unknown, use null or a clear "unknown".
+- tuition must be a NUMBER (no $, no commas).`;
 
     const userMsg =
-      `User profile:\n` +
-      `- GPA: ${gpa}\n- Budget: $${budget}/yr\n- Field: ${program}\n` +
-      `- State preference: ${state}\n- STEM only: ${stemOnly}\n\n` +
-      `Snippets:\n${digest}`;
+      `User profile:
+- GPA: ${gpa}
+- Budget: $${budget}/yr
+- Field: ${program}
+- State preference: ${state}
+- STEM only: ${stemOnly}
+
+Snippets:
+${digest}`;
 
     const aiRes = await fetch(OPENAI_URL, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${openaiKey}`,
+        Authorization: `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        // “input” is the new Responses API messages field
+        // Responses API: use `text.format` instead of `response_format`
+        text: { format: "json" },
         input: [
           { role: "system", content: systemMsg },
           { role: "user", content: userMsg },
         ],
-        response_format: { type: "json" },
         max_output_tokens: 800,
       }),
     });
@@ -112,7 +138,7 @@ export default async function handler(req) {
 
     const aiData = await aiRes.json();
 
-    // Responses API can return in a few shapes; check common ones
+    // Responses API may return different shapes. Try common paths.
     const rawText =
       aiData?.output_text ??
       aiData?.output?.[0]?.content?.[0]?.text ??
@@ -124,7 +150,7 @@ export default async function handler(req) {
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      const m = rawText.match(/\{[\s\S]*\}/); // best-effort JSON block
+      const m = rawText.match(/\{[\s\S]*\}/);
       parsed = m ? JSON.parse(m[0]) : null;
     }
 
