@@ -1,117 +1,86 @@
 // api/find-programs.js
-// Edge runtime (fast cold starts)
+// Fast cold starts
 export const config = { runtime: "edge" };
 
-// --- External APIs
+// External APIs
 const TAVILY_URL = "https://api.tavily.com/search";
 const OPENAI_URL = "https://api.openai.com/v1/responses";
 
-// --- Small helper: JSON Response with headers
-const json = (obj, status = 200) =>
+// Small helper for JSON + CORS
+const j = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      // CORS so you can call this from your site
       "access-control-allow-origin": "*",
       "access-control-allow-methods": "GET, OPTIONS",
       "access-control-allow-headers": "Content-Type, Authorization",
     },
   });
 
-// --- Main handler
 export default async function handler(req) {
-  if (req.method === "OPTIONS") return json({ ok: true });
+  if (req.method === "OPTIONS") return j({ ok: true });
 
   try {
-    // -------- 1) Read query params (with safe defaults)
-    const params = Object.fromEntries(new URL(req.url).searchParams);
-    const gpa = (params.gpa ?? "3.0").toString();
-    const budget = (params.budget ?? "25000").toString();
-    const program = (params.program ?? "Computer Science").toString();
-    const state = (params.state ?? "Any").toString();
-    const stemOnly = String(params.stemOnly ?? "false").toLowerCase() === "true";
+    // 1) Read query params (with safe defaults)
+    const q = Object.fromEntries(new URL(req.url).searchParams);
+    const gpa      = (q.gpa ?? "3.0").toString();
+    const budget   = (q.budget ?? "25000").toString();
+    const program  = (q.program ?? "Computer Science").toString();
+    const state    = (q.state ?? "Any").toString();
+    const stemOnly = String(q.stemOnly ?? "false").toLowerCase() === "true";
 
-    // -------- 2) Web search via Tavily
+    // 2) Tavily search
     const tavilyKey = process.env.TAVILY_API_KEY;
-    if (!tavilyKey) return json({ ok: false, error: "Missing TAVILY_API_KEY" }, 500);
+    if (!tavilyKey) return j({ ok: false, error: "Missing TAVILY_API_KEY" }, 500);
 
-    const query =
+    const searchQuery =
       `best ${program} master's programs ` +
       `${state !== "Any" ? `in ${state}` : "in the US"} ` +
       `tuition, minimum GPA, GRE/GMAT policy, scholarships ${stemOnly ? "STEM only" : ""}`.trim();
 
     const tRes = await fetch(TAVILY_URL, {
       method: "POST",
-      headers: { "content-type": "application/json", Authorization: `Bearer ${tavilyKey}` },
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${tavilyKey}`,
+      },
       body: JSON.stringify({
-        query,
+        query: searchQuery,
         search_depth: "advanced",
         max_results: 8,
-        // Keep results higher-quality; avoid forums
         exclude_domains: ["reddit.com", "quora.com", "medium.com"],
       }),
     });
 
     if (!tRes.ok) {
       const errText = await tRes.text().catch(() => "");
-      return json({ ok: false, error: `Tavily HTTP ${tRes.status}: ${errText}` }, 502);
+      return j({ ok: false, error: `Tavily HTTP ${tRes.status}: ${errText}` }, 502);
     }
 
     const { results = [] } = await tRes.json();
-    const snippets = results.map((r) => ({
-      title: r.title,
-      url: r.url,
-      snippet: r.snippet,
-    }));
+    if (!Array.isArray(results) || results.length === 0) {
+      return j({ ok: false, error: "No web results found" }, 404);
+    }
 
-    // A compact digest the model can read easily
-    const digest = snippets
+    // Digest for the model
+    const digest = results
       .map((r, i) => `#${i + 1} ${r.title}\n${r.snippet}\nURL: ${r.url}`)
       .join("\n\n");
 
-    // -------- 3) Score + extract with OpenAI (Responses API)
+    // 3) OpenAI (Responses API) — keep it simple: NO response_format / text.format
     const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) return json({ ok: false, error: "Missing OPENAI_API_KEY" }, 500);
+    if (!openaiKey) return j({ ok: false, error: "Missing OPENAI_API_KEY" }, 500);
 
     const systemMsg =
-      `You are GradChoice AI. Return pure JSON only (no markdown). ` +
-      `Extract up to 3 graduate programs from the provided web snippets and rank them by fit. ` +
-      `Schema:
-{
-  "ok": true,
-  "programs": [
-    {
-      "name": "string",
-      "school": "string",
-      "tuition": number,      // annual USD estimate, numeric
-      "url": "string",
-      "minGpa": "string|null",
-      "testPolicy": "string|null",
-      "stem": boolean,
-      "deadline": "string|null",
-      "why": "string",
-      "score": number         // 0-100
-    }
-  ],
-  "notes": "string"
-}
-Rules:
-- Max 3 items in "programs".
-- Only include claims supported by the snippets.
-- If a field is unknown, use null or a clear "unknown".
-- tuition must be a NUMBER (no $, no commas).`;
+      `You are GradChoice AI. Return **pure JSON** (no markdown). Extract up to 3 real graduate programs ` +
+      `from the snippets and rank them by fit.\n` +
+      `Schema:\n{\n  "ok": true,\n  "programs": [\n    {\n      "name": "string",\n      "school": "string",\n      "tuition": number,   // annual USD estimate\n      "url": "string",\n      "minGpa": "string|null",\n      "testPolicy": "string|null",\n      "stem": boolean,\n      "deadline": "string|null",\n      "why": "string",\n      "score": number      // 0-100\n    }\n  ],\n  "notes": "string"\n}\n` +
+      `Rules:\n- 3 items max in "programs".\n- Only include claims supported by the snippets.\n- If unknown, use null/\"unknown\".\n- "tuition" must be a NUMBER (no $ or commas).`;
 
     const userMsg =
-      `User profile:
-- GPA: ${gpa}
-- Budget: $${budget}/yr
-- Field: ${program}
-- State preference: ${state}
-- STEM only: ${stemOnly}
-
-Snippets:
-${digest}`;
+      `User:\n- GPA: ${gpa}\n- Budget: $${budget}/yr\n- Field: ${program}\n- State: ${state}\n- STEM only: ${stemOnly}\n\n` +
+      `Snippets:\n${digest}`;
 
     const aiRes = await fetch(OPENAI_URL, {
       method: "POST",
@@ -121,8 +90,6 @@ ${digest}`;
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        // Responses API: use `text.format` instead of `response_format`
-        text: { format: "json" },
         input: [
           { role: "system", content: systemMsg },
           { role: "user", content: userMsg },
@@ -133,32 +100,30 @@ ${digest}`;
 
     if (!aiRes.ok) {
       const errText = await aiRes.text().catch(() => "");
-      return json({ ok: false, error: `OpenAI HTTP ${aiRes.status}: ${errText}` }, 502);
+      return j({ ok: false, error: `OpenAI HTTP ${aiRes.status}: ${errText}` }, 502);
     }
 
     const aiData = await aiRes.json();
-
-    // Responses API may return different shapes. Try common paths.
-    const rawText =
+    const raw =
       aiData?.output_text ??
       aiData?.output?.[0]?.content?.[0]?.text ??
       aiData?.output?.[0]?.content?.[0]?.string_value ??
       "";
 
-    // -------- 4) Parse JSON (with fallback)
-    let parsed;
+    // 4) Parse JSON safely
+    let parsed = null;
     try {
-      parsed = JSON.parse(rawText);
+      parsed = JSON.parse(raw);
     } catch {
-      const m = rawText.match(/\{[\s\S]*\}/);
+      const m = typeof raw === "string" ? raw.match(/\{[\s\S]*\}/) : null;
       parsed = m ? JSON.parse(m[0]) : null;
     }
 
     if (!parsed || parsed.ok === false || !Array.isArray(parsed.programs)) {
-      return json({ ok: false, error: "AI returned no usable programs", raw: rawText }, 502);
+      return j({ ok: false, error: "AI returned no usable programs", raw }, 502);
     }
 
-    // -------- 5) Normalize & limit
+    // 5) Normalize & limit
     const programs = parsed.programs.slice(0, 3).map((p) => ({
       name: String(p.name ?? "").trim(),
       school: String(p.school ?? "").trim(),
@@ -172,14 +137,14 @@ ${digest}`;
       score: Number.isFinite(p.score) ? Number(p.score) : null,
     }));
 
-    return json({
+    return j({
       ok: true,
-      query: { gpa, budget, program, state, stemOnly, usedQuery: query },
+      query: { gpa, budget, program, state, stemOnly, usedQuery: searchQuery },
       programs,
       notes: parsed.notes ?? null,
       count: programs.length,
     });
   } catch (err) {
-    return json({ ok: false, error: String(err?.message || err) }, 500);
+    return j({ ok: false, error: String(err?.message || err) }, 500);
   }
 }
