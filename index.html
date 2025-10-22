@@ -44,7 +44,7 @@
   .meter.reach>span{background:linear-gradient(90deg,#fb7185,var(--reach))}
   .avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);display:grid;place-items:center;font-weight:800;letter-spacing:.5px}
   select, input[type="search"], input[type="text"]{backdrop-filter:saturate(120%) blur(6px);-webkit-backdrop-filter:saturate(120%) blur(6px)}
-  select:focus, input[type="search"]:focus, input[type="text"]:focus{outline:2px solid #fff; outline-offset:2px; box-shadow:0 0 0 3px rgba(124,58,237,.35)}
+  select:focus, input[type="search"], input[type="text"]:focus{outline:2px solid #fff; outline-offset:2px; box-shadow:0 0 0 3px rgba(124,58,237,.35)}
   @keyframes pop{from{transform:scale(.98);opacity:0}to{transform:scale(1);opacity:1}}
   #modal .content{animation:pop .18s ease}
   .badge{border-color:rgba(255,255,255,.35)}
@@ -366,7 +366,7 @@
   function similarTokens(tok){ const out=[]; if(tok.length<3) return out; const maxEdit=1; for(const t of SEARCH.vocab.keys()){ if(Math.abs(t.length - tok.length) > maxEdit) continue; if(t.startsWith(tok) || tok.startsWith(t)) { out.push(t); continue; } if(editDistance(t, tok) <= maxEdit) out.push(t); } return out; }
   function editDistance(a,b){ const m=a.length,n=b.length; const dp=Array.from({length:m+1},()=>Array(n+1).fill(0)); for(let i=0;i<=m;i++) dp[i][0]=i; for(let j=0;j<=n;j++) dp[0][j]=j; for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){ const cost = a[i-1]===b[j-1]?0:1; dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost); } return dp[m][n]; }
 
-  function parseQuery(q){ const must=[], should=[], not=[], phrases=[]; const filters={}; const rx=/("[^"]+")|(\S+)/g; let m; if(!q) return {must,should,not,phrases,filters}; while((m=rx.exec(q))){ const raw=(m[1]||m[2]||'').trim(); if(!raw) continue; if(raw.startsWith('"')&&raw.endsWith('"')){ phrases.push(raw.slice(1,-1)); continue; } if(raw.includes(':')){ const [k,valRaw] = raw.split(':'); const val=valRaw.replace(/^"|"$/g,''); switch(k.toLowerCase()){ case 'state': (filters.states||(filters.states=[])).push(normalizeStateToken(val)); break; case 'city': (filters.cities||(filters.cities=[])).push(val.toLowerCase()); break; case 'area': (filters.areas||(filters.areas=[])).push(val.toLowerCase()); break; case 'waiver': (filters.waivers||(filters.waivers=[])).push(val.toLowerCase()); break; case 'stem': filters.stem = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'aid': filters.aid = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'gpa<': case 'gpa<=': case 'gpa>': case 'gpa>=': case 'gpa=': filters.gpaCmp={op:k.slice(3), val:parseFloat(val)}; break; case 'tuition<': case 'tuition<=': case 'tuition>': case 'tuition>=': case 'tuition=': filters.tuitionCmp={op:k.slice(7), val:parseFloat(val)}; break; default: if(k.toLowerCase()==='state='){ (filters.states||(filters.states=[])).push(normalizeStateToken(val)); } } continue; } if(raw.startsWith('-')){ not.push(raw.slice(1)); continue; } if(raw.includes('|')){ raw.split('|').forEach(t=> t && should.push(t)); continue; } must.push(raw); } return {must, should, not, phrases, filters}; }
+  function parseQuery(q){ const must=[], should=[], not=[], phrases=[]; const filters={}; const rx=(/("[^"]+")|(\S+)/g); let m; if(!q) return {must,should,not,phrases,filters}; while((m=rx.exec(q))){ const raw=(m[1]||m[2]||'').trim(); if(!raw) continue; if(raw.startsWith('"')&&raw.endsWith('"')){ phrases.push(raw.slice(1,-1)); continue; } if(raw.includes(':')){ const [k,valRaw] = raw.split(':'); const val=valRaw.replace(/^"|"$/g,''); switch(k.toLowerCase()){ case 'state': (filters.states||(filters.states=[])).push(normalizeStateToken(val)); break; case 'city': (filters.cities||(filters.cities=[])).push(val.toLowerCase()); break; case 'area': (filters.areas||(filters.areas=[])).push(val.toLowerCase()); break; case 'waiver': (filters.waivers||(filters.waivers=[])).push(val.toLowerCase()); break; case 'stem': filters.stem = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'aid': filters.aid = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'gpa<': case 'gpa<=': case 'gpa>': case 'gpa>=': case 'gpa=': filters.gpaCmp={op:k.slice(3), val:parseFloat(val)}; break; case 'tuition<': case 'tuition<=': case 'tuition>': case 'tuition>=': case 'tuition=': filters.tuitionCmp={op:k.slice(7), val:parseFloat(val)}; break; default: if(k.toLowerCase()==='state='){ (filters.states||(filters.states=[])).push(normalizeStateToken(val)); } } continue; } if(raw.startsWith('-')){ not.push(raw.slice(1)); continue; } if(raw.includes('|')){ raw.split('|').forEach(t=> t && should.push(t)); continue; } must.push(raw); } return {must, should, not, phrases, filters}; }
   function fieldFilterPass(p, filters){ if(!filters) return true; if(filters.states && filters.states.length && !filters.states.includes(p.state)) return false; if(filters.cities && filters.cities.length && !filters.cities.includes(p.city.toLowerCase())) return false; if(filters.areas && filters.areas.length){ const a=(p.programType||'').toLowerCase(); if(!filters.areas.some(x=>a.includes(x))) return false; } if(filters.waivers && filters.waivers.length){ const w=(p.waiverType||'').toLowerCase(); if(!filters.waivers.some(x=>w.includes(x))) return false; } if(typeof filters.stem==='boolean' && filters.stem && !p.stem) return false; if(typeof filters.aid==='boolean' && filters.aid && !(p.assistantship||p.scholarships)) return false; if(filters.gpaCmp){ const g=isKnownMinGpa(p.gpaMin)?p.gpaMin:Infinity; if(!compareNum(g, filters.gpaCmp.op, filters.gpaCmp.val)) return false; } if(filters.tuitionCmp){ const t=tuitionOf(p, prefs)||Infinity; if(!compareNum(t, filters.tuitionCmp.op, filters.tuitionCmp.val)) return false; } return true; }
   function compareNum(a, op, b){ switch(op){ case '<': return a<b; case '<=':return a<=b; case '>':return a>b; case '>=':return a>=b; case '=': return a===b; default: return true; } }
   function bm25Score(tf, df, N, dl, avgdl, w){ if(tf<=0) return 0; const k1=1.2, b=0.75; const idf=Math.log(1 + (N - df + 0.5)/(df + 0.5)); return idf * ((tf*(k1+1))/(tf + k1*(1 - b + b*(dl/avgdl)))) * (w||1); }
@@ -376,176 +376,49 @@
 
   function scoreProgram(p){ const t = tuitionOf(p, prefs); const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null; if (g!=null && g > prefs.gpa + 0.05) return -Infinity; if (typeof t==='number' && t > prefs.budget * 1.4) return -Infinity; let s = 0; s += Math.max(0, 40 - Math.round(Math.max(0, (t||0) - prefs.budget)/1000)); const gGap = g!=null ? (prefs.gpa - g) : 0; s += Math.max(0, Math.round(gGap * 10)); if (prefs.waiver==='any') s += 5; else if (prefs.waiver===(p.waiverType||'')) s += 15; else if ((p.waiverType||'').includes('gpa') && prefs.waiver.includes('gpa')) s += 8; if (prefs.area==='any') s += 5; else if ((p.programType||'').toLowerCase().includes(prefs.area)) s += 18; if (prefs.stateSelect) s += (p.state===prefs.stateSelect ? 10 : 0); if (prefs.states.length) s += (prefs.states.includes(p.state) ? 8 : 0); s += Math.round((p.brandScore||20)/15); if (SEARCH.lastScores && SEARCH.lastScores.has(p.id)) s += SEARCH.lastScores.get(p.id); return s; }
 
-  // ----- AI Pick helpers -----
-  const AI_WEIGHTS = {
-    tuitionUnderBudget: 3.2,
-    tuitionUnderBudgetCap: 28,
-    tuitionPenalty: 35,
-    gpaReward: 55,
-    gpaRewardCap: 24,
-    gpaPenalty: 45,
-    stateMatch: 18,
-    stateMismatch: -12,
-    stemMatch: 14,
-    stemBonus: 4,
-    stemPenalty: -30,
-    aidMatch: 12,
-    aidBonus: 4,
-    aidPenalty: -20,
-    queryBoost: 3.5,
-    queryBoostCap: 15,
-  };
-  function normalizedQueryTokens(pr){ const {must, should, phrases} = parseQuery(pr.query); return [...must, ...should, ...phrases].map(t=>t.toString().toLowerCase()).filter(Boolean); }
-
-  function computeAiPick(candidates, pr = prefs){
-    const prefState = pr || prefs;
-    let pool = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
-    if(!pool.length){
-      if(saved.size){
-        const ids = new Set(Array.from(saved));
-        pool = DATA.filter(p=>ids.has(String(p.id)));
-      } else {
-        pool = filterData();
-      }
-    }
-    pool = pool.filter(Boolean);
-    if(!pool.length){
-      return {top:null, top3:[], reasons:[], tradeoffs:[], queryTokens:[]};
-    }
-
-    const tokens = normalizedQueryTokens(prefState);
-    const ranked = pool.map(p=>{
-      let baseScore = scoreProgram(p);
-      if(!Number.isFinite(baseScore)) baseScore = -9999;
-      const tuition = tuitionOf(p, prefState);
-      const gpaMin = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null;
-      const gGap = gpaMin!=null ? (prefState.gpa - gpaMin) : null;
-      let score = baseScore;
-
-      if(Number.isFinite(tuition) && Number.isFinite(prefState.budget)){
-        const gap = prefState.budget - tuition;
-        if(gap >= 0){ score += Math.min(AI_WEIGHTS.tuitionUnderBudgetCap, (gap/1000) * AI_WEIGHTS.tuitionUnderBudget); }
-        if(tuition > prefState.budget * 1.1){ score -= AI_WEIGHTS.tuitionPenalty; }
-      }
-
-      if(gGap!=null){
-        if(gGap >= 0){ score += Math.min(AI_WEIGHTS.gpaRewardCap, gGap * AI_WEIGHTS.gpaReward); }
-        if(p.gpaMin > prefState.gpa + 0.05){ score -= AI_WEIGHTS.gpaPenalty; }
-      }
-
-      if(prefState.stateSelect){ score += (p.state === prefState.stateSelect) ? AI_WEIGHTS.stateMatch : AI_WEIGHTS.stateMismatch; }
-
-      if(prefState.stem){ score += p.stem ? AI_WEIGHTS.stemMatch : AI_WEIGHTS.stemPenalty; }
-      else if(p.stem){ score += AI_WEIGHTS.stemBonus; }
-
-      const hasAid = !!(p.assistantship || p.scholarships);
-      if(prefState.aid){ score += hasAid ? AI_WEIGHTS.aidMatch : AI_WEIGHTS.aidPenalty; }
-      else if(hasAid){ score += AI_WEIGHTS.aidBonus; }
-
-      if(tokens.length){
-        const hay = `${p.program} ${p.school} ${p.city}`.toLowerCase();
-        let hits = 0;
-        tokens.forEach(tok=>{ if(tok && hay.includes(tok)) hits++; });
-        if(hits){ score += Math.min(AI_WEIGHTS.queryBoostCap, hits * AI_WEIGHTS.queryBoost); }
-      }
-
-      return { program:p, score, tieBreaker:p.brandScore||0, tuition, gpaMin, gGap, hasAid };
-    }).sort((a,b)=>{
-      if(b.score === a.score){
-        if(b.tieBreaker === a.tieBreaker){
-          return String(a.program.id).localeCompare(String(b.program.id));
-        }
-        return b.tieBreaker - a.tieBreaker;
-      }
-      return b.score - a.score;
-    });
-
-    const topEntries = ranked.slice(0,3);
-    const topMeta = topEntries[0];
-    if(!topMeta || !topMeta.program){
-      return {top:null, top3:[], reasons:[], tradeoffs:[], queryTokens:tokens};
-    }
-
-    const top = topMeta.program;
-    const reasons = [];
-    const tradeoffs = [];
-    const tuition = topMeta.tuition;
-    const budget = prefState.budget;
-    const tuitionLabel = describeTuitionPreference(prefState);
-
-    if(Number.isFinite(tuition)){
-      if(Number.isFinite(budget) && tuition <= budget){
-        const gap = budget - tuition;
-        const cushion = gap > 0 ? ` (${currency(gap)} under budget)` : '';
-        reasons.push(`Estimated ${tuitionLabel} tuition is ${currency(tuition)}, within your ${currency(budget)} budget${cushion}.`);
-      } else if(Number.isFinite(budget) && tuition > budget){
-        tradeoffs.push(`Tuition is ${currency(tuition)}, above your ${currency(budget)} budget.`);
-      } else {
-        reasons.push(`Estimated ${tuitionLabel} tuition is ${currency(tuition)}.`);
-      }
-    } else {
-      tradeoffs.push('Tuition data is missing — confirm costs directly with the school.');
-    }
-
-    if(topMeta.gpaMin!=null){
-      const gap = prefState.gpa - topMeta.gpaMin;
-      if(gap >= 0.01){ reasons.push(`Minimum GPA ${topMeta.gpaMin.toFixed(2)} gives you a ${gap.toFixed(2)} cushion.`); }
-      else if(topMeta.gpaMin > prefState.gpa + 0.05){ tradeoffs.push(`Minimum GPA ${topMeta.gpaMin.toFixed(2)} is above your ${prefState.gpa.toFixed(2)} target.`); }
-    } else {
-      tradeoffs.push('Program has not published a minimum GPA — double-check admission requirements.');
-    }
-
-    if(prefState.stateSelect){
-      if(top.state === prefState.stateSelect){
-        const name = CODE_TO_NAME[top.state] || top.state;
-        reasons.push(`Located in ${name}, matching your preferred state.`);
-      } else {
-        tradeoffs.push(`${top.school} is in ${CODE_TO_NAME[top.state] || top.state}, not your preferred state.`);
-      }
-    }
-
-    if(prefState.stem){
-      if(top.stem){ reasons.push('STEM-designated program as you requested.'); }
-      else { tradeoffs.push('Not STEM-designated, so OPT/STEM benefits may not apply.'); }
-    } else if(top.stem){
-      reasons.push('STEM-designated for extended OPT eligibility.');
-    }
-
-    if(prefState.aid){
-      if(topMeta.hasAid){ reasons.push('Scholarships or assistantships are flagged for this program.'); }
-      else { tradeoffs.push('No scholarships/assistantships noted — budget accordingly.'); }
-    } else if(topMeta.hasAid){
-      reasons.push('Includes scholarships or assistantships that could offset costs.');
-    }
-
-    if(tokens.length){
-      const hay = `${top.program} ${top.school} ${top.city}`.toLowerCase();
-      const hits = tokens.filter(tok=>tok && hay.includes(tok));
-      if(hits.length){ reasons.push(`Matches your search focus on “${hits.slice(0,3).join('”, “')}”.`); }
-    }
-
-    if(top.deadline){ reasons.push(`Next deadline: ${top.deadline}.`); }
-
-    return { top, top3: topEntries.map(x=>x.program), reasons, tradeoffs, queryTokens:tokens };
+  // ----- (local AI pick helpers kept for compatibility but no longer used by the button) -----
+  function buildAiTopCard(p, pr, tokens){
+    const queryTokens = Array.isArray(tokens) ? tokens : [];
+    const tuition = tuitionOf(p, pr);
+    const tuitionText = Number.isFinite(tuition) ? currency(tuition) : '—';
+    const tuitionLabel = describeTuitionPreference(pr);
+    const badges = [];
+    if(p.stem) badges.push('<span class="badge">STEM</span>');
+    if(p.scholarships||p.assistantship) badges.push('<span class="badge">Scholarships/TA</span>');
+    if(p.brandScore) badges.push('<span class="badge">Brand ★ '+p.brandScore+'</span>');
+    const badgesHtml = badges.length ? `<div class="badges" style="margin-top:8px">${badges.join('')}</div>` : '';
+    return `
+      <article class="card glass">
+        <div class="row" style="align-items:flex-start">
+          <div>
+            <div style="font-weight:700;font-size:22px">${p.program}</div>
+            <div class="muted">${p.school} • ${p.city}, ${p.state}</div>
+            ${badgesHtml}
+          </div>
+          <div style="text-align:right">
+            <div class="muted">Tuition (${tuitionLabel})</div>
+            <div style="font-weight:700;font-size:22px">${tuitionText}</div>
+            <div class="muted" style="margin-top:6px">Min GPA ${fmtMinGpa(p.gpaMin)}</div>
+          </div>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px">
+          <div class="box"><div class="muted">Test Policy</div><div>${p.waiver||'—'}</div></div>
+          <div class="box"><div class="muted">Deadline</div><div>${p.deadline||'—'}</div></div>
+        </div>
+      </article>`;
   }
-
-  function parseDate(d){ if(!d) return null; const t = Date.parse(d); if(!Number.isNaN(t)) return new Date(t); const try2 = Date.parse(String(d).replace(/\//g,'-')); return Number.isNaN(try2) ? null : new Date(try2); }
-
-  function esc(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-  function hiTokens(text, tokens){ if(!tokens || !tokens.length) return esc(text); let out = esc(text); tokens.forEach(tok=>{ const rx = new RegExp('('+tok.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+')','ig'); out = out.replace(rx,'<mark>$1</mark>'); }); return out; }
-  function bucketClass(lbl){ return 'bucket '+(lbl==='Reach'?'reach':lbl==='Safe'?'safe':''); }
 
   function card(p,isTop=false){ const t = tuitionOf(p,prefs); const savedNow = isSaved(p.id); const bucket = bucketFor(p); const {must, should, phrases} = parseQuery(prefs.query); const qTokens = [...must, ...should, ...phrases].map(x=>x.toString()); const tuitionLabel = prefs.tuitionType==='inState' ? `In-State${prefs.residencyState?` • ${prefs.residencyState}`:' • (fallback shown)'}` : (prefs.tuitionType==='outState'? `Out-of-State${prefs.residencyState?` • excl ${prefs.residencyState}`:''}` : 'International'); const minGpaText = fmtMinGpa(p.gpaMin); return `
       <article class="card" tabindex="0">
         <div class="row">
           <div>
-            <div style="font-weight:700;font-size:${isTop?'22px':'18px'}">${hiTokens(p.program,qTokens)}</div>
-            <div class="muted">${hiTokens(p.school,qTokens)} • ${hiTokens(p.city,qTokens)}, ${esc(p.state)}</div>
+            <div style="font-weight:700;font-size:${isTop?'22px':'18px'}">${p.program}</div>
+            <div class="muted">${p.school} • ${p.city}, ${p.state}</div>
             <div class="badges">
-              <span class="badge ${bucketClass(bucket)}">${bucket}</span>
+              <span class="badge ${bucket==='Reach'?'bucket reach':bucket==='Safe'?'bucket safe':'bucket'}">${bucket}</span>
               ${p.stem?'<span class="badge">STEM</span>':''}
               ${(p.scholarships||p.assistantship)?'<span class="badge">Scholarships/TA</span>':''}
-              <span class="badge">${esc(p.portal||'Institution')}</span>
+              <span class="badge">${p.portal||'Institution'}</span>
               ${p.brandScore?'<span class="badge">Brand ★ '+p.brandScore+'</span>':''}
             </div>
           </div>
@@ -555,10 +428,10 @@
             <div class="muted" style="margin-top:6px">Min GPA ${minGpaText}</div>
           </div>
         </div>
-        ${isTop?`<div style="margin-top:10px">${hiTokens(p.desc||'',qTokens)}</div>`:''}
+        ${isTop?`<div style="margin-top:10px">${p.desc||''}</div>`:''}
         <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px">
-          <div class="box"><div class="muted">Test Policy</div><div>${esc(p.waiver||'')}</div></div>
-          <div class="box"><div class="muted">Deadline</div><div>${esc(p.deadline||'')}</div></div>
+          <div class="box"><div class="muted">Test Policy</div><div>${p.waiver||''}</div></div>
+          <div class="box"><div class="muted">Deadline</div><div>${p.deadline||''}</div></div>
         </div>
         <div class="row" style="gap:8px;margin-top:12px">
           <a href="${p.link||'#'}" target="_blank" rel="noopener noreferrer" class="btn primary">Program Site</a>
@@ -608,129 +481,79 @@
   function releaseFocus(){ const fn = previousFocusHandlers.pop(); if(fn) document.removeEventListener('keydown', fn); }
   function resetModalFocusTrap(){ if($('#modal').style.display==='flex'){ releaseFocus(); trapFocus($('#modal')); } }
 
-  function buildAiTopCard(p, pr, tokens){
-    const queryTokens = Array.isArray(tokens) ? tokens : [];
-    const tuition = tuitionOf(p, pr);
-    const tuitionText = Number.isFinite(tuition) ? currency(tuition) : '—';
-    const tuitionLabel = describeTuitionPreference(pr);
-    const badges = [];
-    if(p.stem) badges.push('<span class="badge">STEM</span>');
-    if(p.scholarships||p.assistantship) badges.push('<span class="badge">Scholarships/TA</span>');
-    if(p.brandScore) badges.push('<span class="badge">Brand ★ '+esc(p.brandScore)+'</span>');
-    const badgesHtml = badges.length ? `<div class="badges" style="margin-top:8px">${badges.join('')}</div>` : '';
-    return `
-      <article class="card glass">
-        <div class="row" style="align-items:flex-start">
-          <div>
-            <div style="font-weight:700;font-size:22px">${hiTokens(p.program,queryTokens)}</div>
-            <div class="muted">${hiTokens(p.school,queryTokens)} • ${hiTokens(p.city,queryTokens)}, ${esc(p.state)}</div>
-            ${badgesHtml}
-          </div>
-          <div style="text-align:right">
-            <div class="muted">Tuition (${tuitionLabel})</div>
-            <div style="font-weight:700;font-size:22px">${tuitionText}</div>
-            <div class="muted" style="margin-top:6px">Min GPA ${fmtMinGpa(p.gpaMin)}</div>
-          </div>
-        </div>
-        <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px">
-          <div class="box"><div class="muted">Test Policy</div><div>${esc(p.waiver||'—')}</div></div>
-          <div class="box"><div class="muted">Deadline</div><div>${esc(p.deadline||'—')}</div></div>
-        </div>
-      </article>`;
-  }
-
   function buildAiComparisonTable(programs, pr){
     if(!programs || !programs.length) return '';
     const rows = programs.map((p, idx)=>{
       const tuition = tuitionOf(p, pr);
       const tuitionText = Number.isFinite(tuition) ? currency(tuition) : '—';
-      const programCell = idx===0 ? `<strong>${esc(p.program)}</strong>` : esc(p.program);
-      const location = `${esc(p.school)} • ${esc(p.city)}, ${esc(p.state)}`;
+      const programCell = idx===0 ? `<strong>${p.program}</strong>` : p.program;
+      const location = `${p.school} • ${p.city}, ${p.state}`;
       const rowStyle = idx===0 ? ' style="background:rgba(255,255,255,.05)"' : '';
-      return `<tr${rowStyle}><td style="padding:10px;border-bottom:1px solid var(--border);">${programCell}<div class="muted" style="font-size:12px">${location}</div></td><td style="padding:10px;border-bottom:1px solid var(--border);">${tuitionText}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${fmtMinGpa(p.gpaMin)}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${esc(p.waiver||'—')}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${p.stem?'Yes':'No'}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${esc(p.deadline||'—')}</td></tr>`;
+      return `<tr${rowStyle}><td style="padding:10px;border-bottom:1px solid var(--border);">${programCell}<div class="muted" style="font-size:12px">${location}</div></td><td style="padding:10px;border-bottom:1px solid var(--border);">${tuitionText}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${fmtMinGpa(p.gpaMin)}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${p.waiver||'—'}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${p.stem?'Yes':'No'}</td><td style="padding:10px;border-bottom:1px solid var(--border);">${p.deadline||'—'}</td></tr>`;
     }).join('');
     return `<section style="margin-top:16px"><h4 style="margin:0 0 6px 0">Compare Top 3</h4><div class="box" style="overflow-x:auto;padding:0"><table style="width:100%;border-collapse:collapse"><thead><tr><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Program</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Tuition</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Min GPA</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Waiver</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">STEM</th><th scope="col" style="text-align:left;padding:10px;border-bottom:1px solid var(--border);">Deadline</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
   }
 
-  function populateAiModal(result){
-    lastAiResult = result;
+  function populateAiModalFromAPI(payload){
     showModalSection('modalAi');
     const intro = $('#aiIntro');
-    if(intro) intro.textContent = saved.size ? 'Based on your shortlisted programs.' : 'Based on your current filters and search.';
+    intro.textContent = `Web + AI results • ${new Date().toLocaleTimeString()}${payload?.notes?` • ${payload.notes}`:''}`;
+
+    const progs = Array.isArray(payload?.programs) ? payload.programs : [];
+    const normalized = progs.map((p,i)=>({
+      id: `ai-${Date.now()}-${i}`,
+      program: p.name || '(Program)',
+      school: p.school || '',
+      city: p.city || '',
+      state: p.state || (payload?.query?.state || ''),
+      gpaMin: typeof p.minGpa==='number' ? p.minGpa : (parseFloat(p.minGpa) || null),
+      waiver: p.testPolicy || null,
+      deadline: p.deadline || null,
+      stem: (typeof p.stem==='boolean') ? p.stem : null,
+      link: p.url || '#',
+      international: Number.isFinite(p.tuition) ? p.tuition : undefined,
+      outState: Number.isFinite(p.tuition) ? p.tuition : undefined,
+      inState: undefined,
+      brandScore: p.score || undefined,
+      desc: p.why || ''
+    }));
+
     const content = $('#aiContent');
     const openLink = $('#aiOpenLink');
     const saveBtn = $('#aiSave');
     const copyBtn = $('#aiCopy');
-    if(!content || !openLink || !saveBtn || !copyBtn) return;
 
-    if(!result || !result.top){
-      content.innerHTML = '<div class="box" role="status">No solid matches. Try raising budget by $5k or lowering GPA threshold by 0.1.</div>';
+    if(!normalized.length){
+      content.innerHTML = '<div class="box" role="status">No solid matches. Try widening state or raising budget by $5k.</div>';
       openLink.style.display = 'none';
-      openLink.dataset.disabled = 'true';
-      openLink.setAttribute('aria-disabled','true');
-      openLink.tabIndex = -1;
       saveBtn.style.display = 'none';
       copyBtn.disabled = false;
-      copyBtn.setAttribute('aria-disabled','false');
-      if($('#modal').style.display==='flex'){ resetModalFocusTrap(); }
+      $('#modal').style.display = 'flex';
+      resetModalFocusTrap();
       return;
     }
 
-    openLink.style.display = '';
-    saveBtn.style.display = '';
-    const hasLink = !!result.top.link;
-    openLink.href = hasLink ? result.top.link : '#';
-    openLink.dataset.disabled = hasLink ? 'false' : 'true';
-    openLink.setAttribute('aria-disabled', hasLink ? 'false' : 'true');
-    openLink.tabIndex = hasLink ? 0 : -1;
+    const top = normalized[0];
+    const compareHtml = buildAiComparisonTable(normalized.slice(0,3), prefs);
+    content.innerHTML = `${buildAiTopCard(top, prefs, [])}${compareHtml}`;
 
-    const tokens = result.queryTokens || [];
-    const reasonsHtml = result.reasons.length ? `<section style="margin-top:16px"><h4 style="margin:0 0 6px 0">Why this fits you</h4><ul style="margin:0;padding-left:18px">${result.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></section>` : '';
-    const tradeoffsHtml = result.tradeoffs.length ? `<section style="margin-top:16px"><h4 style="margin:0 0 6px 0">Heads-up</h4><ul style="margin:0;padding-left:18px">${result.tradeoffs.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></section>` : '';
-    const compareHtml = buildAiComparisonTable(result.top3, prefs);
-    content.innerHTML = `${buildAiTopCard(result.top, prefs, tokens)}${reasonsHtml}${tradeoffsHtml}${compareHtml}`;
+    // Primary action
+    openLink.href = top.link || '#';
+    openLink.style.display = top.link ? '' : 'none';
 
-    const savedNow = isSaved(result.top.id);
-    saveBtn.textContent = savedNow ? 'Unsave' : 'Save';
-    saveBtn.dataset.programId = result.top.id;
+    // Hide Save for API results (not part of local DATA)
+    saveBtn.style.display = 'none';
     copyBtn.disabled = false;
-    copyBtn.setAttribute('aria-disabled','false');
-    if($('#modal').style.display==='flex'){ resetModalFocusTrap(); }
-  }
 
-  function openAiPick(){
-    lastFocused = document.activeElement;
-    const result = computeAiPick(null, prefs);
-    populateAiModal(result);
     $('#modal').style.display = 'flex';
     resetModalFocusTrap();
   }
 
-  function exportData(){ const payload = JSON.stringify(DATA,null,2); downloadBlob(payload, 'application/json', 'programs.json'); }
-  function sanitizeProgram(raw){ const p = {...raw}; const toNum = v=>{ if (v === '' || v == null) return undefined; const n = typeof v === 'number' ? v : Number(v); return Number.isFinite(n) ? n : undefined; }; p.id = (raw.id!=null?String(raw.id):'').trim()||undefined; if(!p.id){ p.id = Date.now().toString(36)+Math.random().toString(36).slice(2,8); } const g = typeof raw.gpaMin==='number' ? raw.gpaMin : parseFloat(raw.gpaMin); p.gpaMin = isKnownMinGpa(g) ? +g : undefined; p.inState = toNum(p.inState); p.outState = toNum(p.outState); p.international = toNum(p.international); p.brandScore = toNum(p.brandScore); p.school = (p.school||'').trim(); p.program = (p.program||'').trim(); p.city = (p.city||'').trim(); p.state = normalizeStateToken(p.state||''); p.programType = (p.programType||'').toString().toLowerCase(); return p; }
-  function keyFor(p){ return (p.school||'').toLowerCase()+ '|' + (p.program||'').toLowerCase(); }
+  function esc(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+  function hiTokens(text, tokens){ if(!tokens || !tokens.length) return esc(text); let out = esc(text); tokens.forEach(tok=>{ const rx = new RegExp('('+tok.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+')','ig'); out = out.replace(rx,'<mark>$1</mark>'); }); return out; }
+  function bucketClass(lbl){ return 'bucket '+(lbl==='Reach'?'reach':lbl==='Safe'?'safe':''); }
 
-  function mergePrograms(arr){ const stats = {added:0, updated:0, skipped:{dupeId:0, dupeKey:0, invalid:0}}; if(!Array.isArray(arr)) return stats; const idIndex = new Map(); const keyIndex = new Map(); DATA.forEach((d,i)=>{ idIndex.set(String(d.id), i); keyIndex.set(keyFor(d), i); }); for(const raw of arr){ if(!raw) { stats.skipped.invalid++; continue; } const p = sanitizeProgram(raw); if(!p.school || !p.program){ stats.skipped.invalid++; continue; } const k = keyFor(p); if(keyIndex.has(k)){ const i = keyIndex.get(k); const before = DATA[i]; const merged = { ...before, ...p, id: before.id }; DATA[i] = merged; stats.updated++; continue; } if(p.id!=null && idIndex.has(String(p.id))){ stats.skipped.dupeId++; p.id = Date.now().toString(36)+Math.random().toString(36).slice(2,8); } DATA.push(p); idIndex.set(String(p.id), DATA.length-1); keyIndex.set(k, DATA.length-1); stats.added++; } return stats; }
-
-  function importStateOrPrograms(payload){ if(Array.isArray(payload)){ const s = mergePrograms(payload); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && Array.isArray(payload.programs)){ const s = mergePrograms(payload.programs); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && (Array.isArray(payload.data) || Array.isArray(payload.dataset))){ const arr = payload.data || payload.dataset; const s = mergePrograms(arr); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && (payload.prefs || payload.filters || payload.shortlist)){ const s = {added:0, updated:0, skipped:{dupeId:0,dupeKey:0,invalid:0}}; if(Array.isArray(payload.programs)){ const z = mergePrograms(payload.programs); s.added += z.added; s.updated = (s.updated||0) + (z.updated||0); s.skipped.dupeId+=z.skipped.dupeId; s.skipped.dupeKey+=z.skipped.dupeKey; s.skipped.invalid+=z.skipped.invalid; } if(payload.prefs || payload.filters){ try{ const incoming = payload.prefs || payload.filters; prefs = { ...DEFAULT_PREFS, ...prefs, ...incoming }; persistPrefs(); }catch{} } afterImportPersistAndRender(s); buildIndex(); return s; } throw new Error('JSON must be an array of programs or an object containing a "programs" array.'); }
-
-  function afterImportPersistAndRender(stats){ localStorage.setItem('gc_dataset', JSON.stringify(DATA)); refreshCount(); render(); const skippedTotal = (stats.skipped?.dupeId||0) + (stats.skipped?.dupeKey||0) + (stats.skipped?.invalid||0); toast(`Imported ${stats.added} • Updated ${stats.updated||0} • Skipped ${skippedTotal}`); }
-  function importArray(maybeArr){ return importStateOrPrograms(maybeArr); }
-  function readFileAsText(file){ return new Promise((res,rej)=>{ const r = new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsText(file); }); }
-  async function importFiles(fileList){ try{ let total={added:0, updated:0, skipped:{dupeId:0,dupeKey:0,invalid:0}}; for(const f of Array.from(fileList||[])){ try{ const text = await readFileAsText(f); const json = JSON.parse(text); const stats = importStateOrPrograms(json); total.added += stats.added; total.updated += (stats.updated||0); total.skipped.dupeId += stats.skipped.dupeId; total.skipped.dupeKey += stats.skipped.dupeKey; total.skipped.invalid += stats.skipped.invalid; }catch(inner){ toast(`${f.name}: ${inner.message||inner}`); } } toast(`Total import → Added ${total.added}; Updated ${total.updated}; Skipped ${total.skipped.dupeId+total.skipped.dupeKey+total.skipped.invalid}`); }catch(e){ toast('Import cancelled'); } }
-  async function pasteDataFromClipboard(){ try{ const text = await navigator.clipboard.readText(); const json = JSON.parse(text); importStateOrPrograms(json); }catch(e){ toast('Paste error: '+(e.message||e)); } }
-
-  function csvEscape(v){ const s=String(v??''); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
-  function exportShortlistCSV(){ if(!saved.size){ toast('Shortlist is empty'); return; } const cols = ['id','school','program','city','state','tuition','minGPA','testPolicy','deadline','link','brandScore','STEM','Aid']; const header = cols.join(','); const rows = []; const idSet = new Set(saved); DATA.forEach(p=>{ if(!idSet.has(String(p.id))) return; const t = tuitionOf(p, prefs); rows.push([ p.id, p.school, p.program, p.city, p.state, (typeof t==='number'?t:''), (isKnownMinGpa(p.gpaMin)?p.gpaMin:''), (p.waiver??''), (p.deadline??''), (p.link??''), (p.brandScore??''), (p.stem?'Yes':'No'), ((p.assistantship||p.scholarships)?'Yes':'No') ].map(csvEscape).join(',')); }); const csv = [header, ...rows].join('\n'); downloadBlob('\ufeff'+csv, 'text/csv;charset=utf-8', 'gradchoice_shortlist.csv'); }
-  function exportShortlistJSON(){ if(!saved.size){ toast('Shortlist is empty'); return; } const idSet = new Set(saved); const arr = DATA.filter(p=>idSet.has(String(p.id))); downloadBlob(JSON.stringify(arr, null, 2), 'application/json', 'gradchoice_shortlist.json'); }
-  function downloadBlob(content, mime, filename){ const blob = new Blob([content], {type:mime}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href); }
-
-  function prefsToQuery(){ const q = new URLSearchParams(); for(const [k,v] of Object.entries(prefs)){ if(k==='query' && !v) continue; if(k==='states' && Array.isArray(v) && v.length===0) continue; if(k==='residencyState' && !v) continue; if(k==='stateSelect' && !v) continue; if(Array.isArray(v)) q.set(k, v.join(',')); else q.set(k, String(v)); } return q.toString(); }
-  function buildShareUrl(){ const base = location.origin?.startsWith('http') ? (location.origin + location.pathname) : location.href.split('?')[0]; return base + '?' + prefsToQuery(); }
-  async function copyShareLink(){ try{ await navigator.clipboard.writeText(buildShareUrl()); toast('Share link copied'); }catch{ toast('Copy blocked'); } }
-
-  function applyQueryToPrefs(){ const url = new URL(location.href); const q = url.searchParams; const get = (k,d)=> q.get(k) ?? d; prefs.gpa = parseFloat(get('gpa', prefs.gpa)) || prefs.gpa; prefs.budget = parseInt(get('budget', prefs.budget)) || prefs.budget; prefs.tuitionType = get('tuitionType', prefs.tuitionType); prefs.waiver = get('waiver', prefs.waiver); prefs.area = get('area', prefs.area); const sel = normalizeStateToken(get('stateSelect','') || ''); prefs.stateSelect = sel; if (sel) { prefs.states = [sel]; } else { prefs.states = normalizeStateList(get('states','') || ''); } prefs.residencyState = normalizeStateToken(get('residencyState','') || ''); prefs.stem = get('stem', String(prefs.stem)) === 'true'; prefs.aid = get('aid',  String(prefs.aid))  === 'true'; prefs.query = get('query', prefs.query) || ''; prefs.sortBy = get('sortBy', prefs.sortBy); }
-  function updateUrl(){ try{ history.replaceState(null, '', '?' + prefsToQuery()); }catch{} }
+  function parseDate(d){ if(!d) return null; const t = Date.parse(d); if(!Number.isNaN(t)) return new Date(t); const try2 = Date.parse(String(d).replace(/\//g,'-')); return Number.isNaN(try2) ? null : new Date(try2); }
 
   function setupDragAndDrop(){ const zone = $('#list'); window.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('dropzone','drag'); }); window.addEventListener('dragleave', ()=> zone.classList.remove('drag')); window.addEventListener('drop', async e=>{ e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files?.length){ await importFiles(e.dataTransfer.files); buildIndex(); } }); }
 
@@ -739,6 +562,35 @@
 
   function hydrateControls(){ $('#gpa').value = prefs.gpa; $('#gpaVal').textContent=prefs.gpa.toFixed(2); $('#budget').value = prefs.budget; $('#budgetVal').textContent=currency(prefs.budget); $('#area').value = prefs.area; $('#waiver').value = prefs.waiver; $('#stateSelect').value = prefs.stateSelect || ''; $('#states').value = prefs.states.join(', '); $('#residencySelect').value= prefs.residencyState || ''; $('#stem').checked = prefs.stem; $('#aid').checked = prefs.aid; $('#query').value = prefs.query; $('#sort').value = prefs.sortBy; $$('.pill').forEach(x=>{ const val=x.getAttribute('data-tuition'); const on = val===prefs.tuitionType; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); }); }
   function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display='none', 2400); }
+
+  // ---- NEW: Web+AI ask ----
+  async function askAI(){
+    const btn = $('#btnAiPick');
+    const gpa = parseFloat($('#gpa')?.value || '3.0');
+    const budget = parseInt($('#budget')?.value || '25000');
+    const area = $('#area')?.value || 'any';
+    const stateSel = $('#stateSelect')?.value || '';
+    const statesFree = ($('#states')?.value || '').trim();
+    const state = stateSel || (statesFree.split(',')[0] || '').trim() || 'Any';
+    const stemOnly = !!$('#stem')?.checked;
+
+    const areaMap = { mis:'Information Systems', analytics:'Business Analytics', cs:'Computer Science', 'data science':'Data Science', mba:'MBA' };
+    const program = areaMap[area] || 'Computer Science';
+
+    if(btn){ btn.disabled = true; btn.textContent = 'Finding…'; }
+    try{
+      const params = new URLSearchParams({ gpa:String(gpa), budget:String(budget), program, state, stemOnly:String(stemOnly) });
+      const res = await fetch(`/api/find-programs?${params.toString()}`);
+      const data = await res.json();
+      if(!res.ok || !data?.ok){ throw new Error(data?.error || `HTTP ${res.status}`); }
+      populateAiModalFromAPI(data);
+    }catch(err){
+      alert('AI error: ' + (err?.message || err));
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = 'Ask AI for Best Fit'; }
+    }
+  }
+
   function initEvents(){
     const rRender = debounce(()=>{ persistPrefs(); updateUrl(); render(); }, 60);
 
@@ -763,14 +615,15 @@
     $('#btnResetData').addEventListener('click', ()=>{ if(!confirm('Reset filters and reload the built-in demo programs?')) return; localStorage.removeItem('gc_dataset'); localStorage.removeItem('gc_saved_ids'); localStorage.removeItem('gc_prefs_v2'); saved.clear(); prefs = { ...DEFAULT_PREFS }; DATA  = DEFAULT_DATA.slice(); buildIndex(); hydrateControls(); updateSavedExport(); refreshCount(); persistPrefs(); updateUrl(); render(); });
 
     $('#btnShare').addEventListener('click', ()=>{ copyShareLink(); });
-    $('#btnAiPick').addEventListener('click', openAiPick);
+    // 🔄 Use the API-backed Ask AI
+    $('#btnAiPick').addEventListener('click', askAI);
 
     document.getElementById('fileInput').addEventListener('change', async e=>{ const files = e.target.files; if(files && files.length) await importFiles(files); e.target.value=''; });
     document.getElementById('mClose').addEventListener('click', closeModal);
     document.getElementById('aiClose').addEventListener('click', closeModal);
     document.getElementById('aiCopy').addEventListener('click', ()=>{ copyShareLink(); });
     document.getElementById('aiOpenLink').addEventListener('click', e=>{ if(e.currentTarget.dataset.disabled==='true'){ e.preventDefault(); toast('Program link unavailable'); } });
-    document.getElementById('aiSave').addEventListener('click', ()=>{ if(!lastAiResult || !lastAiResult.top) return; const targetId = lastAiResult.top.id; saveToggle(targetId); const updated = computeAiPick(null, prefs); populateAiModal(updated); });
+    document.getElementById('aiSave').addEventListener('click', ()=>{ /* purposely disabled for API results */ });
 
     document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
 
@@ -781,117 +634,38 @@
     });
   }
 
+  function exportData(){ const payload = JSON.stringify(DATA,null,2); downloadBlob(payload, 'application/json', 'programs.json'); }
+  function sanitizeProgram(raw){ const p = {...raw}; const toNum = v=>{ if (v === '' || v == null) return undefined; const n = typeof v === 'number' ? v : Number(v); return Number.isFinite(n) ? n : undefined; }; p.id = (raw.id!=null?String(raw.id):'').trim()||undefined; if(!p.id){ p.id = Date.now().toString(36)+Math.random().toString(36).slice(2,8); } const g = typeof raw.gpaMin==='number' ? raw.gpaMin : parseFloat(raw.gpaMin); p.gpaMin = isKnownMinGpa(g) ? +g : undefined; p.inState = toNum(p.inState); p.outState = toNum(p.outState); p.international = toNum(p.international); p.brandScore = toNum(p.brandScore); p.school = (p.school||'').trim(); p.program = (p.program||'').trim(); p.city = (p.city||'').trim(); p.state = normalizeStateToken(p.state||''); p.programType = (p.programType||'').toString().toLowerCase(); return p; }
+  function keyFor(p){ return (p.school||'').toLowerCase()+ '|' + (p.program||'').toLowerCase(); }
+  function mergePrograms(arr){ const stats = {added:0, updated:0, skipped:{dupeId:0, dupeKey:0, invalid:0}}; if(!Array.isArray(arr)) return stats; const idIndex = new Map(); const keyIndex = new Map(); DATA.forEach((d,i)=>{ idIndex.set(String(d.id), i); keyIndex.set(keyFor(d), i); }); for(const raw of arr){ if(!raw) { stats.skipped.invalid++; continue; } const p = sanitizeProgram(raw); if(!p.school || !p.program){ stats.skipped.invalid++; continue; } const k = keyFor(p); if(keyIndex.has(k)){ const i = keyIndex.get(k); const before = DATA[i]; const merged = { ...before, ...p, id: before.id }; DATA[i] = merged; stats.updated++; continue; } if(p.id!=null && idIndex.has(String(p.id))){ stats.skipped.dupeId++; p.id = Date.now().toString(36)+Math.random().toString(36).slice(2,8); } DATA.push(p); idIndex.set(String(p.id), DATA.length-1); keyIndex.set(k, DATA.length-1); stats.added++; } return stats; }
+  function importStateOrPrograms(payload){ if(Array.isArray(payload)){ const s = mergePrograms(payload); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && Array.isArray(payload.programs)){ const s = mergePrograms(payload.programs); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && (Array.isArray(payload.data) || Array.isArray(payload.dataset))){ const arr = payload.data || payload.dataset; const s = mergePrograms(arr); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && (payload.prefs || payload.filters || payload.shortlist)){ const s = {added:0, updated:0, skipped:{dupeId:0,dupeKey:0,invalid:0}}; if(Array.isArray(payload.programs)){ const z = mergePrograms(payload.programs); s.added += z.added; s.updated = (s.updated||0) + (z.updated||0); s.skipped.dupeId+=z.skipped.dupeId; s.skipped.dupeKey+=z.skipped.dupeKey; s.skipped.invalid+=z.skipped.invalid; } if(payload.prefs || payload.filters){ try{ const incoming = payload.prefs || payload.filters; prefs = { ...DEFAULT_PREFS, ...prefs, ...incoming }; persistPrefs(); }catch{} } afterImportPersistAndRender(s); buildIndex(); return s; } throw new Error('JSON must be an array of programs or an object containing a "programs" array.'); }
+  function afterImportPersistAndRender(stats){ localStorage.setItem('gc_dataset', JSON.stringify(DATA)); refreshCount(); render(); const skippedTotal = (stats.skipped?.dupeId||0) + (stats.skipped?.dupeKey||0) + (stats.skipped?.invalid||0); toast(`Imported ${stats.added} • Updated ${stats.updated||0} • Skipped ${skippedTotal}`); }
+  function importArray(maybeArr){ return importStateOrPrograms(maybeArr); }
+  function readFileAsText(file){ return new Promise((res,rej)=>{ const r = new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsText(file); }); }
+  async function importFiles(fileList){ try{ let total={added:0, updated:0, skipped:{dupeId:0,dupeKey:0,invalid:0}}; for(const f of Array.from(fileList||[])){ try{ const text = await readFileAsText(f); const json = JSON.parse(text); const stats = importStateOrPrograms(json); total.added += stats.added; total.updated += (stats.updated||0); total.skipped.dupeId += stats.skipped.dupeId; total.skipped.dupeKey += stats.skipped.dupeKey; total.skipped.invalid += stats.skipped.invalid; }catch(inner){ toast(`${f.name}: ${inner.message||inner}`); } } toast(`Total import → Added ${total.added}; Updated ${total.updated}; Skipped ${total.skipped.dupeId+total.skipped.dupeKey+total.skipped.invalid}`); }catch(e){ toast('Import cancelled'); } }
+  async function pasteDataFromClipboard(){ try{ const text = await navigator.clipboard.readText(); const json = JSON.parse(text); importStateOrPrograms(json); }catch(e){ toast('Paste error: '+(e.message||e)); } }
+
+  function csvEscape(v){ const s=String(v??''); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+  function exportShortlistCSV(){ if(!saved.size){ toast('Shortlist is empty'); return; } const cols = ['id','school','program','city','state','tuition','minGPA','testPolicy','deadline','link','brandScore','STEM','Aid']; const header = cols.join(','); const rows = []; const idSet = new Set(saved); DATA.forEach(p=>{ if(!idSet.has(String(p.id))) return; const t = tuitionOf(p, prefs); rows.push([ p.id, p.school, p.program, p.city, p.state, (typeof t==='number'?t:''), (isKnownMinGpa(p.gpaMin)?p.gpaMin:''), (p.waiver??''), (p.deadline??''), (p.link??''), (p.brandScore??''), (p.stem?'Yes':'No'), ((p.assistantship||p.scholarships)?'Yes':'No') ].map(csvEscape).join(',')); }); const csv = [header, ...rows].join('\n'); downloadBlob('\ufeff'+csv, 'text/csv;charset=utf-8', 'gradchoice_shortlist.csv'); }
+  function exportShortlistJSON(){ if(!saved.size){ toast('Shortlist is empty'); return; } const idSet = new Set(saved); const arr = DATA.filter(p=>idSet.has(String(p.id))); downloadBlob(JSON.stringify(arr, null, 2), 'application/json', 'gradchoice_shortlist.json'); }
+  function downloadBlob(content, mime, filename){ const blob = new Blob([content], {type:mime}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href); }
+
+  function prefsToQuery(){ const q = new URLSearchParams(); for(const [k,v] of Object.entries(prefs)){ if(k==='query' && !v) continue; if(k==='states' && Array.isArray(v) && v.length===0) continue; if(k==='residencyState' && !v) continue; if(k==='stateSelect' && !v) continue; if(Array.isArray(v)) q.set(k, v.join(',')); else q.set(k, String(v)); } return q.toString(); }
+  function buildShareUrl(){ const base = location.origin?.startsWith('http') ? (location.origin + location.pathname) : location.href.split('?')[0]; return base + '?' + prefsToQuery(); }
+  async function copyShareLink(){ try{ await navigator.clipboard.writeText(buildShareUrl()); toast('Share link copied'); }catch{ toast('Copy blocked'); } }
+
+  function applyQueryToPrefs(){ const url = new URL(location.href); const q = url.searchParams; const get = (k,d)=> q.get(k) ?? d; prefs.gpa = parseFloat(get('gpa', prefs.gpa)) || prefs.gpa; prefs.budget = parseInt(get('budget', prefs.budget)) || prefs.budget; prefs.tuitionType = get('tuitionType', prefs.tuitionType); prefs.waiver = get('waiver', prefs.waiver); prefs.area = get('area', prefs.area); const sel = normalizeStateToken(get('stateSelect','') || ''); prefs.stateSelect = sel; if (sel) { prefs.states = [sel]; } else { prefs.states = normalizeStateList(get('states','') || ''); } prefs.residencyState = normalizeStateToken(get('residencyState','') || ''); prefs.stem = get('stem', String(prefs.stem)) === 'true'; prefs.aid = get('aid',  String(prefs.aid))  === 'true'; prefs.query = get('query', prefs.query) || ''; prefs.sortBy = get('sortBy', prefs.sortBy); }
+  function updateUrl(){ try{ history.replaceState(null, '', '?' + prefsToQuery()); }catch{} }
+
+  function setupHotkeys(){
+    document.addEventListener('keydown', e=>{
+      if(e.key==='/' && document.activeElement!==$('#query')){ e.preventDefault(); $('#query').focus(); $('#query').select(); }
+    });
+  }
+
   function init(){ $('#year').textContent = new Date().getFullYear(); $('#waitlist').href = WAITLIST_URL; populateStatesInto('#stateSelect'); populateStatesInto('#residencySelect'); applyQueryToPrefs(); hydrateControls(); updateSavedExport(); refreshCount(); setupDragAndDrop(); initEvents(); buildIndex(); const candidates = ['programs.json','programs_extra.json','programs2.json']; Promise.allSettled(candidates.map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(results=>{ let merged = 0; results.forEach(res=>{ const arr = res?.value; if(Array.isArray(arr) && arr.length){ const {added} = mergePrograms(arr); merged += added; } }); if(merged>0){ localStorage.setItem('gc_dataset', JSON.stringify(DATA)); refreshCount(); buildIndex(); } render(); }).catch(()=>{ render(); }); }
 
   init();
-
-  <script>
-  // --- AI shortlist (web + OpenAI) ---
-  async function askAI() {
-    const btn = document.querySelector('#askAi') || document.querySelector('#btnAIPick');
-    const wrap = document.querySelector('#aiWrap');
-    const meta = document.querySelector('#aiMeta');
-    const grid = document.querySelector('#aiResults');
-
-    const $ = (s)=>document.querySelector(s);
-
-    // Pull values from the existing controls
-    const gpa = ($('#gpa')?.value || 3.0);
-    const budget = ($('#budget')?.value || 25000);
-    const area = ($('#area')?.value || 'any');
-
-    // Map UI "Program Area" → natural-language field for search
-    const areaMap = {
-      mis: 'Information Systems',
-      analytics: 'Business Analytics',
-      cs: 'Computer Science',
-      'data science': 'Data Science',
-      mba: 'MBA'
-    };
-    const program = areaMap[area] || 'Computer Science';
-
-    // State: prefer the single-select; fall back to the free-text first token
-    const stateSel = $('#stateSelect')?.value || '';
-    const statesFree = ($('#states')?.value || '').trim();
-    const state = stateSel || (statesFree.split(',')[0] || '').trim() || 'Any';
-
-    const stemOnly = !!$('#stem')?.checked;
-
-    // UI: disable while loading
-    if (btn) { btn.disabled = true; btn.textContent = 'Finding…'; }
-
-    try {
-      const params = new URLSearchParams({
-        gpa: String(gpa),
-        budget: String(budget),
-        program,
-        state,
-        stemOnly: String(stemOnly)
-      });
-
-      const res = await fetch(`/api/find-programs?${params.toString()}`);
-      const data = await res.json();
-
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `HTTP ${res.status}`);
-      }
-
-      // Show results section
-      if (wrap) wrap.style.display = 'block';
-      if (meta) {
-        meta.textContent = `Top ${data.count} · ${new Date().toLocaleTimeString()} · ${data.notes ? data.notes : ''}`;
-      }
-
-      // Small currency helper (use existing currency() if defined)
-      const formatMoney = (n)=>{
-        if (typeof currency === 'function' && Number.isFinite(n)) return currency(n);
-        return Number.isFinite(n) ? `$${Number(n).toLocaleString()}` : '—';
-      };
-
-      // Render cards
-      if (grid) {
-        grid.innerHTML = (data.programs || []).map((p, i) => `
-          <div class="card">
-            <div class="row" style="justify-content:space-between;align-items:flex-start">
-              <div style="font-weight:800">${i+1}. ${p.name || '(Program)'}</div>
-              <div class="badge">Score ${p.score ?? '—'}</div>
-            </div>
-            <div class="sub" style="margin-top:4px">${p.school || ''}</div>
-            <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
-              <span class="badge">Tuition ${formatMoney(p.tuition)}</span>
-              <span class="badge">Min GPA ${p.minGpa ?? '—'}</span>
-              <span class="badge">Test ${p.testPolicy ?? '—'}</span>
-              <span class="badge">${p.stem === true ? 'STEM' : p.stem === false ? 'non-STEM' : 'STEM ?'}</span>
-              <span class="badge">Deadline ${p.deadline ?? '—'}</span>
-            </div>
-            <div class="muted" style="margin-top:8px">${p.why || ''}</div>
-            <div class="row" style="gap:8px;margin-top:10px">
-              ${p.url ? `<a class="btn primary" href="${p.url}" target="_blank" rel="noreferrer">Open program site</a>` : ''}
-            </div>
-          </div>
-        `).join('');
-      }
-
-      // Clear button
-      const clear = document.querySelector('#aiClear');
-      if (clear) {
-        clear.onclick = ()=>{
-          if (grid) grid.innerHTML = '';
-          if (wrap) wrap.style.display = 'none';
-        };
-      }
-    } catch (err) {
-      alert('AI error: ' + (err?.message || err));
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Ask AI for Best Fit'; }
-    }
-  }
-
-  // Hook up both possible IDs just in case
-  document.querySelector('#askAi')?.addEventListener('click', askAI);
-  document.querySelector('#btnAIPick')?.addEventListener('click', askAI);
-</script>
 </script>
 </body>
 </html>
-
