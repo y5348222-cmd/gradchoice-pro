@@ -30,8 +30,8 @@ export default async function handler(req) {
     const openaiOff = String(q.openai ?? "on").toLowerCase() === "off";
 
     // 2) Tavily: live web candidates
-    const tavilyKey = process.env.TAVILY_API_KEY;
-    if (!tavilyKey) return j({ ok: false, error: "Missing TAVILY_API_KEY" }, 500);
+    const tvlyKey = process.env.TAVILY_API_KEY;
+    if (!tvlyKey) return j({ ok:false, error:"Missing TAVILY_API_KEY" }, 500);
 
     const searchQuery =
       `best ${program} master's programs ` +
@@ -42,8 +42,10 @@ export default async function handler(req) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        // ✅ Tavily expects x-api-key
-        "x-api-key": tavilyKey,
+        // Tavily auth header:
+        "Authorization": `Bearer ${tvlyKey}`,
+        // If your key expects `x-api-key` instead in your account, swap the line above for:
+        // "x-api-key": tvlyKey,
       },
       body: JSON.stringify({
         query: searchQuery,
@@ -55,39 +57,36 @@ export default async function handler(req) {
 
     if (!tRes.ok) {
       const errText = await tRes.text().catch(() => "");
-      return j({ ok: false, error: `Tavily HTTP ${tRes.status}: ${errText}` }, 502);
+      return j({ ok:false, error:`Tavily HTTP ${tRes.status}: ${errText}` }, 502);
     }
 
     const { results = [] } = await tRes.json();
     if (!Array.isArray(results) || results.length === 0) {
-      return j({ ok: false, error: "No web results found" }, 404);
+      return j({ ok:false, error:"No web results found" }, 404);
     }
 
-    const snippets = results.map((r) => ({
+    const snippets = results.map(r => ({
       title: r.title,
       url: r.url,
       snippet: r.snippet,
     }));
 
     const digest = snippets
-      .map((r, i) => `#${i + 1} ${r.title}\n${r.snippet}\nURL: ${r.url}`)
+      .map((r,i)=>`#${i+1} ${r.title}\n${r.snippet}\nURL: ${r.url}`)
       .join("\n\n")
       .slice(0, 4000); // keep prompt compact
 
     // 3) OpenAI: extract + rank programs (no local JSON fallback)
+    if (openaiOff) return j({ ok:false, error:"OpenAI disabled via ?openai=off" }, 400);
+
     const openaiKey = process.env.OPENAI_API_KEY;
-    if (openaiOff) {
-      return j({ ok: false, error: "OpenAI disabled via ?openai=off" }, 400);
-    }
-    if (!openaiKey) {
-      return j({ ok: false, error: "Missing OPENAI_API_KEY" }, 500);
-    }
+    if (!openaiKey) return j({ ok:false, error:"Missing OPENAI_API_KEY" }, 500);
 
     const instructions = `
-You are GradChoice AI. Return **pure JSON** only (no markdown).
-Extract up to 3 *real* master's programs that fit the user and rank by fit.
+You are GradChoice AI. Return pure JSON only (no markdown).
+Extract up to 3 real master's programs that fit the user and rank by fit.
 
-Required JSON schema:
+Required schema:
 {
   "ok": true,
   "programs": [
@@ -109,7 +108,7 @@ Required JSON schema:
 
 Rules:
 - Use ONLY facts supported by the provided web snippets.
-- If a field is unknown, set it to null (or "unknown" for text).
+- If unknown, set to null (or "unknown" for text).
 - Max 3 items. Keep "why" short.
 `.trim();
 
@@ -123,11 +122,10 @@ ${digest}
       method: "POST",
       headers: {
         "content-type": "application/json",
-        Authorization: `Bearer ${openaiKey}`,
+        "Authorization": `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        // Solid + cost-effective model
-        model: "gpt-4o-mini",
+        model: "gpt-4o-mini",   // good + cheaper; change to a pricier model if you want
         input: `${instructions}\n\n${userContext}`,
         temperature: 0.2,
         max_output_tokens: 600,
@@ -136,7 +134,7 @@ ${digest}
 
     if (!aiRes.ok) {
       const errText = await aiRes.text().catch(() => "");
-      return j({ ok: false, error: `OpenAI HTTP ${aiRes.status}: ${errText}` }, 502);
+      return j({ ok:false, error:`OpenAI HTTP ${aiRes.status}: ${errText}` }, 502);
     }
 
     const aiData = await aiRes.json();
@@ -155,7 +153,7 @@ ${digest}
     }
 
     const aiPrograms = Array.isArray(parsed?.programs)
-      ? parsed.programs.slice(0, 3).map((p) => ({
+      ? parsed.programs.slice(0,3).map(p => ({
           name: String(p.name ?? "").trim(),
           school: String(p.school ?? "").trim(),
           tuition: Number.isFinite(p.tuition) ? Number(p.tuition) : null,
@@ -170,14 +168,11 @@ ${digest}
       : [];
 
     if (aiPrograms.length === 0) {
-      return j(
-        {
-          ok: false,
-          error: "AI did not return structured programs. Try adjusting filters or query.",
-          usedQuery: searchQuery,
-        },
-        424
-      );
+      return j({
+        ok: false,
+        error: "AI did not return structured programs. Try adjusting filters or query.",
+        usedQuery: searchQuery,
+      }, 424);
     }
 
     // 4) Success — AI programs only
@@ -188,7 +183,8 @@ ${digest}
       notes: parsed?.notes ?? null,
       count: aiPrograms.length,
     });
+
   } catch (err) {
-    return j({ ok: false, error: String(err?.message || err) }, 500);
+    return j({ ok:false, error: String(err?.message || err) }, 500);
   }
 }
