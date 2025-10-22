@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#1F1147" />
+<title>GradChoice — Pro v2 (Search++)</title>
+<style>
+  /* ---- Theme variables (dark default) ---- */
+  :root{
+    --bg1:#1F1147; --bg2:#5B21B6; --bg3:#A855F7;
+    --card:rgba(255,255,255,.08); --border:rgba(255,255,255,.25);
+    --muted:rgba(255,255,255,.75); --muted2:rgba(255,255,255,.6);
+    --accent:#7c3aed; --ok:#10b981; --warn:#f59e0b; --reach:#f43f5e; --safe:#22c55e;
+  }
+
+  /* === UI polish pack === */
+  .card{transition:transform .2s ease, box-shadow .2s ease}
+  .card:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(10,10,20,.35)}
+  .btn{transition:transform .1s ease, background .2s ease}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{box-shadow:0 6px 16px rgba(124,58,237,.45)}
+  .btn.primary:hover{filter:brightness(1.05)}
+  .card.glass{position:relative;background:rgba(255,255,255,.06)}
+  .card.glass::before{
+    content:"";position:absolute;inset:-1px;border-radius:20px;padding:1px;
+    background:conic-gradient(from 180deg at 50% 50%, #ffffff22, #7c3aed66, #ffffff22);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;
+  }
+  input[type="range"]{-webkit-appearance:none;appearance:none;height:28px;background:transparent}
+  input[type="range"]::-webkit-slider-runnable-track{height:8px;border-radius:999px;background:linear-gradient(90deg,#ffffff2a,#ffffff12)}
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;
+    background:#fff;border:2px solid var(--accent);margin-top:-5px;box-shadow:0 2px 8px rgba(0,0,0,.35)
+  }
+  input[type="range"]::-moz-range-track{height:8px;border-radius:999px;background:linear-gradient(90deg,#ffffff2a,#ffffff12)}
+  input[type="range"]::-moz-range-thumb{
+    width:18px;height:18px;border:none;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.35)
+  }
+  .meter{height:8px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden}
+  .meter>span{display:block;height:100%;width:var(--w,60%);
+    background:linear-gradient(90deg,var(--safe),#a7f3d0,var(--warn));transition:width .35s ease}
+  .meter.reach>span{background:linear-gradient(90deg,#fb7185,var(--reach))}
+  .avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);display:grid;place-items:center;font-weight:800;letter-spacing:.5px}
+  select, input[type="search"], input[type="text"]{backdrop-filter:saturate(120%) blur(6px);-webkit-backdrop-filter:saturate(120%) blur(6px)}
+  select:focus, input[type="search"]:focus, input[type="text"]:focus{outline:2px solid #fff; outline-offset:2px; box-shadow:0 0 0 3px rgba(124,58,237,.35)}
+  @keyframes pop{from{transform:scale(.98);opacity:0}to{transform:scale(1);opacity:1}}
+  #modal .content{animation:pop .18s ease}
+  .badge{border-color:rgba(255,255,255,.35)}
+  .bucket.reach{color:#fecaca}
+  .bucket.safe{color:#bbf7d0}
+  :root[data-compact="true"] .card{padding:14px}
+  :root[data-compact="true"] .grid.cols2{gap:12px}
+  /* Light theme */
+  :root[data-theme="light"] body { color:#0b1020; }
+  :root[data-theme="light"]{
+    --bg1:#f7f7fb; --bg2:#ececf9; --bg3:#ffffff;
+    --card:rgba(10,10,20,.05); --border:rgba(10,10,20,.12);
+    --muted:rgba(0,0,0,.65); --muted2:rgba(0,0,0,.55)
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#fff;
+    background:radial-gradient(1200px 600px at 20% -10%,#7c3aed22 0%,transparent 60%),
+               linear-gradient(135deg,var(--bg1),var(--bg2) 50%,var(--bg3));
+    min-height:100vh;line-height:1.45;scroll-behavior:smooth
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:24px}
+  h1{margin:0 0 8px 0;font-size:38px;font-weight:800;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:14px}
+  .row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .btn,select,input[type="text"],input[type="search"],.chip{border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,0.1);color:#fff;padding:10px 14px;font-size:14px;cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent)}
+  .btn:hover{background:rgba(255,255,255,0.12)}
+  .btn.ghost{background:transparent}
+  .btn.icon{padding:8px 10px}
+  .chip{display:inline-flex;align-items:center;gap:8px}
+  .kbd{border:1px solid var(--border);border-bottom-width:2px;border-radius:8px;padding:0 6px;font-size:12px}
+  .card{border:1px solid var(--border);background:var(--card);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:18px;padding:18px}
+  .grid{display:grid;gap:16px}
+  .cols2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media(max-width:900px){.cols2{grid-template-columns:1fr}}
+  .box{border:1px solid var(--border);background:rgba(255,255,255,.1);padding:10px;border-radius:12px}
+  .pill{border:1px solid var(--border);background:rgba(255,255,255,.1);padding:8px 10px;border-radius:12px;font-size:14px;cursor:pointer}
+  .pill.active{background:#ffffff22;border-color:#fff}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .badge{border:1px solid var(--border);background:rgba(255,255,255,.1);padding:4px 8px;border-radius:999px;font-size:12px;color:#fff}
+  .muted{color:var(--muted2);font-size:14px}
+  .footer{text-align:center;color:var(--muted2);font-size:12px;margin:22px 0 12px}
+  input[type="range"]{width:100%}
+  .sliders{display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media(max-width:900px){.sliders{grid-template-columns:1fr}}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ok);color:#04110f;padding:10px 14px;border-radius:12px;border:1px solid #065f46;display:none}
+  .sticky{ position: static; z-index:auto; box-shadow:none; }
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  mark{background:#f59e0b55;color:#fff;padding:0 .1em;border-radius:4px}
+  .bucket{font-weight:700}
+  .bucket.reach{color:#fca5a5}
+  .bucket.safe{color:#bbf7d0}
+  .dropzone{border:2px dashed var(--border);border-radius:16px;padding:10px;text-align:center}
+  .dropzone.drag{border-color:#fff;background:#ffffff12}
+  .skeleton{background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:shimmer 1.5s infinite}
+  @keyframes shimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+  :focus-visible{outline:2px solid #fff;outline-offset:2px}
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .card, .box { background: rgba(17,17,35,.86) !important; }
+  }
+</style>
+</head>
+<body>
+  <a href="#main" class="sr-only">Skip to content</a>
+  <div class="wrap">
+    <div class="row">
+      <div>
+        <h1>GradChoice <span class="sub">match</span> <span class="badge" style="margin-left:6px">Pro v2</span></h1>
+        <div class="sub">Data loaded: <b id="count">0</b> programs • Edit <code>programs.json</code> to add more. Demo data — verify.
+          <span class="sub" style="margin-left:8px">Press <span class="kbd">/</span> to search</span>
+        </div>
+      </div>
+      <div class="row" style="gap:8px">
+        <a id="waitlist" class="btn primary" href="#" target="_blank" rel="noreferrer">Join Waitlist</a>
+        <button id="btnExportData" class="btn">Export data (JSON)</button>
+        <div class="row" style="gap:6px">
+          <button id="btnImportData" class="btn" title="Import JSON (you can select multiple files)">Import JSON</button>
+          <button id="btnPasteData" class="btn ghost" title="Paste JSON from clipboard">Paste</button>
+          <button id="btnResetData" class="btn ghost" title="Reset to built-in demo data">Reset</button>
+        </div>
+        <input id="fileInput" type="file" accept="application/json" multiple style="display:none" />
+      </div>
+    </div>
+
+    <div class="row" style="margin:16px 0">
+      <div class="row" style="gap:8px">
+        <select id="sort">
+          <option value="popularity" selected>Sort: Popularity (Featured)</option>
+          <option value="match">Sort: Best Match</option>
+          <option value="tuition">Sort: Tuition (Low → High)</option>
+          <option value="gpa">Sort: GPA Min (Low → High)</option>
+          <option value="deadline">Sort: Deadline (Soonest)</option>
+        </select>
+        <button id="btnResetFilters" class="btn ghost">Reset filters</button>
+        <button id="btnShare" class="btn">Share filters</button>
+      </div>
+      <div class="row" style="gap:8px">
+        <button id="exportCsv" class="btn">Export shortlist CSV</button>
+        <button id="exportJson" class="btn ghost">Export shortlist JSON</button>
+        <button id="clearShortlist" class="btn ghost">Clear shortlist</button>
+        <span class="chip" id="matchChip" title="Current matches"><span>Matches</span><b id="matchCount">0</b></span>
+      </div>
+    </div>
+
+    <!-- Filters card -->
+    <div class="card sticky" aria-label="Filters">
+      <div class="sliders">
+        <div>
+          <label class="muted" for="gpa">Your GPA</label>
+          <div class="row" style="gap:8px;margin-top:6px">
+            <input id="gpa" type="range" min="2.5" max="4.0" step="0.05" value="3.8" aria-describedby="gpaVal" />
+            <div id="gpaVal" style="width:48px;text-align:right;font-weight:700">3.80</div>
+          </div>
+        </div>
+        <div>
+          <label class="muted" for="budget">Max Tuition Budget</label>
+          <div class="row" style="gap:8px;margin-top:6px">
+            <input id="budget" type="range" min="15000" max="70000" step="1000" value="60000" aria-describedby="budgetVal" />
+            <div id="budgetVal" style="width:100px;text-align:right;font-weight:700">$60,000</div>
+          </div>
+          <div class="sub">USD / academic year (est.).</div>
+        </div>
+        <div>
+          <div class="muted">Tuition Type</div>
+          <div class="row" style="justify-content:flex-start;gap:8px;margin-top:6px" role="group" aria-label="Tuition type">
+            <button data-tuition="inState" class="pill" aria-pressed="false">In-State</button>
+            <button data-tuition="outState" class="pill" aria-pressed="false">Out-of-State</button>
+            <button data-tuition="international" class="pill active" aria-pressed="true">International</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sliders" style="margin-top:12px">
+        <div>
+          <label class="muted" for="area">Program Area</label>
+          <select id="area" style="width:100%;margin-top:6px">
+            <option value="any" selected>Any</option>
+            <option value="mis">Management Information Systems</option>
+            <option value="analytics">Business Analytics</option>
+            <option value="cs">Computer Science</option>
+            <option value="data science">Data Science</option>
+            <option value="mba">MBA</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted" for="waiver">Test Policy</label>
+          <select id="waiver" style="width:100%;margin-top:6px">
+            <option value="any" selected>Any</option>
+            <option value="gpa">Waived by GPA</option>
+            <option value="gpa-or-exp">Waived by GPA or experience</option>
+            <option value="optional">Test optional</option>
+            <option value="case">Case-by-case</option>
+            <option value="required">Test required</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted" for="stateSelect">State preference</label>
+          <select id="stateSelect" style="width:100%;margin-top:6px">
+            <option value="">Any</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sliders" style="margin-top:12px">
+        <div>
+          <label class="muted" for="states">State (optional)</label>
+          <input id="states" type="text" placeholder="e.g., TX, CA, NY" style="width:100%;margin-top:6px" />
+          <div class="sub">Comma separated two-letter codes (advanced multi-select).</ndiv>
+
+          <div style="margin-top:12px">
+            <label class="muted" for="residencySelect">Residency state (for tuition)</label>
+            <select id="residencySelect" style="width:100%;margin-top:6px">
+              <option value="">I don’t know yet</option>
+            </select>
+            <div class="sub">Used to compute In-State/Out-of-State tuition.</div>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:28px"><input id="stem" type="checkbox" /> STEM only</label>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:28px"><input id="aid" type="checkbox" /> Show scholarships/TA</label>
+      </div>
+
+      <div style="margin-top:12px">
+        <input id="query" type="search" placeholder="Search school, program, or city… (try: \"data science\" state:TX tuition<30000)" style="width:100%" aria-label="Search" />
+      </div>
+      <div class="sub" id="hotkeys" style="margin-top:6px">Shortcuts: <span class="kbd">/</span> focus search • <span class="kbd">Esc</span> close modal • <span class="kbd">Ctrl/Cmd + C</span> copy share link</div>
+    </div>
+
+    <main id="main">
+      <div id="info" class="sub" style="margin-top:10px"></div>
+      <div id="topWrap" style="margin-top:12px"></div>
+      <div class="sub" id="listLabel" style="margin-top:6px"></div>
+      <div id="list" class="grid cols2" style="margin-top:8px"></div>
+    </main>
+
+    <div class="footer">© <span id="year"></span> GradChoice (demo). Not affiliated with schools. Verify details before applying.</div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div id="modal" class="modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px">
+    <div class="content" role="dialog" aria-modal="true" aria-labelledby="mTitle" aria-describedby="mDesc" style="max-width:760px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;outline:0">
+      <div class="row"><div><h3 id="mTitle" style="margin:0 0 6px 0"></h3><div class="muted" id="mSub"></div></div>
+        <div class="row" style="gap:6px">
+          <button id="mCopy" class="btn icon" title="Copy program link">Copy</button>
+          <button id="mClose" class="btn">Close</button>
+        </div>
+      </div>
+      <div id="mDesc" style="margin-top:12px"></div>
+      <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px">
+        <div class="box"><div class="muted">Tuition In-State</div><div id="mIn"></div></div>
+        <div class="box"><div class="muted">Tuition Out-of-State</div><div id="mOut"></div></div>
+        <div class="box"><div class="muted">Tuition International</div><div id="mIntl"></div></div>
+        <div class="box" style="grid-column:1/-1"><div class="muted">Min GPA</div><div id="mMinGpa"></div></div>
+        <div class="box" style="grid-column:1/-1"><div class="muted">Test Policy</div><div id="mWaiver"></div></div>
+        <div class="box" style="grid-column:1/-1"><div class="muted">Deadline</div><div id="mDeadline"></div></div>
+      </div>
+      <div class="badges" id="mBadges" style="margin-top:12px"></div>
+      <div class="row" style="gap:8px;margin-top:12px"><a id="mLink" class="btn primary" target="_blank" rel="noreferrer">Open Program Site</a><button id="mSave" class="btn">Save to Shortlist</button></div>
+      <div class="sub" style="margin-top:12px">Demo data for competition. Policies change — verify on official site.</div>
+    </div>
+  </div>
+
+<script>
+  // ---------- Data & Utilities ----------
+  const DEFAULT_DATA = [
+    {id:100101, school:'UT Austin', program:'MS in Business Analytics', programType:'analytics', city:'Austin', state:'TX', region:'South', gpaMin:3.2,
+     inState:25000, outState:47000, international:47000, waiver:'GMAT/GRE optional for qualified', waiverType:'optional',
+     scholarships:true, assistantship:false, stem:true, deadline:'2026-01-15', portal:'Institution', brandScore:88,
+     link:'https://www.mccombs.utexas.edu/graduate/ms-business-analytics', desc:'Hands-on analytics with industry capstone.'},
+    {id:100102, school:'ASU', program:'MS Information Systems (MSIM)', programType:'mis', city:'Tempe', state:'AZ', region:'West', gpaMin:3.0,
+     inState:22000, outState:39000, international:39500, waiver:'Waived by GPA or experience', waiverType:'gpa-or-exp',
+     scholarships:true, assistantship:true, stem:true, deadline:'2025-12-10', portal:'Institution', brandScore:76,
+     link:'https://wpcarey.asu.edu/masters-programs/business-analytics', desc:'Balanced MIS with cloud & ERP tracks.'},
+    {id:100103, school:'Carnegie Mellon', program:'MS in CS', programType:'cs', city:'Pittsburgh', state:'PA', region:'Northeast', gpaMin:3.6,
+     inState:54000, outState:54000, international:54000, waiver:'Test required', waiverType:'required',
+     scholarships:false, assistantship:true, stem:true, deadline:'2025-12-01', portal:'Institution', brandScore:97,
+     link:'https://www.cmu.edu/tepper/programs/master-business-analytics/index.html', desc:'Advanced CS with strong research focus.'},
+    {id:100104, school:'Northeastern', program:'MS in Data Science', programType:'data science', city:'Boston', state:'MA', region:'Northeast', gpaMin:3.2,
+     inState:38000, outState:38000, international:39500, waiver:'Case-by-case', waiverType:'case',
+     scholarships:true, assistantship:false, stem:true, deadline:'2026-02-01', portal:'Institution', brandScore:82,
+     link:'https://example.com/neu-ds', desc:'Co-op experience with applied DS courses.'}
+  ];
+
+  const _stored = (()=>{ try { return JSON.parse(localStorage.getItem('gc_dataset')||'null'); } catch(e){ return null; } })();
+  let DATA = (Array.isArray(_stored) && _stored.length > 0) ? _stored : DEFAULT_DATA.slice();
+
+  const $ = s=>document.querySelector(s);
+  const $$ = s=>Array.from(document.querySelectorAll(s));
+  const currency = n=>'$'+(Number.isFinite(n)?n:0).toLocaleString();
+  const WAITLIST_URL = '#';
+
+  const DEFAULT_PREFS = { gpa:3.8, budget:60000, tuitionType:'international', waiver:'any', area:'any', states:[], residencyState:'', stateSelect:'', stem:false, aid:false, query:'', sortBy:'popularity' };
+
+  function isKnownMinGpa(v){ return typeof v==='number' && Number.isFinite(v) && v>0 && v<=4.0; }
+  function fmtMinGpa(v){ return isKnownMinGpa(v) ? v.toFixed(2) : '—'; }
+
+  const STATE_PAIRS = `AL:Alabama, AK:Alaska, AZ:Arizona, AR:Arkansas, CA:California, CO:Colorado,
+  CT:Connecticut, DE:Delaware, FL:Florida, GA:Georgia, HI:Hawaii, ID:Idaho, IL:Illinois, IN:Indiana,
+  IA:Iowa, KS:Kansas, KY:Kentucky, LA:Louisiana, ME:Maine, MD:Maryland, MA:Massachusetts, MI:Michigan,
+  MN:Minnesota, MS:Mississippi, MO:Missouri, MT:Montana, NE:Nebraska, NV:Nevada, NH:New Hampshire,
+  NJ:New Jersey, NM:New Mexico, NY:New York, NC:North Carolina, ND:North Dakota, OH:Ohio, OK:Oklahoma,
+  OR:Oregon, PA:Pennsylvania, RI:Rhode Island, SC:South Carolina, SD:South Dakota, TN:Tennessee,
+  TX:Texas, UT:Utah, VT:Vermont, VA:Virginia, WA:Washington, WV:West Virginia, WI:Wisconsin, WY:Wyoming, DC:District of Columbia`;
+  const CODE_TO_NAME = {}; const NAME_TO_CODE = {}; STATE_PAIRS.split(',').forEach(pair=>{ const [code,name] = pair.trim().split(':'); if(code && name){ CODE_TO_NAME[code]=name; NAME_TO_CODE[name.toLowerCase()]=code; } });
+  function normalizeStateToken(s){ if(!s) return ''; const t = s.trim(); if(/^[A-Za-z]{2}$/.test(t)) return t.toUpperCase(); return NAME_TO_CODE[t.toLowerCase()] || ''; }
+  function normalizeStateList(str){ return (str||'').split(',').map(x=>normalizeStateToken(x)).filter(Boolean); }
+  function populateStatesInto(selector){ const sel = $(selector); if(!sel) return; const codes = Object.keys(CODE_TO_NAME).sort(); const prefix = selector==='#residencySelect' ? '<option value="">I don’t know yet</option>' : '<option value="">Any</option>'; sel.innerHTML = prefix + codes.map(c=>`<option value="${c}">${c} — ${CODE_TO_NAME[c]}</option>`).join(''); }
+
+  const PREFS_KEY = 'gc_prefs_v2'; const SAVED_KEY = 'gc_saved_ids';
+  let prefs = Object.assign({}, DEFAULT_PREFS, (()=>{try{return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')}catch{return {}}})());
+  const saved = new Set((()=>{try{return JSON.parse(localStorage.getItem(SAVED_KEY)||'[]')}catch{return []}})());
+  function persistPrefs(){ localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); }
+  function persistSaved(){ localStorage.setItem(SAVED_KEY, JSON.stringify(Array.from(saved))); }
+  function refreshCount(){ $('#count').textContent = DATA.length; }
+  function byPopularity(list){ return list.slice().sort((a,b)=>(b.brandScore||0)-(a.brandScore||0)); }
+
+  function tuitionOf(p, pr){ if (pr.tuitionType === 'inState'){ if (pr.residencyState && p.state === pr.residencyState) return p.inState; if (typeof p.outState === 'number') return p.outState; return p.international; } if (pr.tuitionType === 'outState') { return (typeof p.outState === 'number') ? p.outState : p.international; } return p.international; }
+  const debounce = (fn, ms=120)=>{ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
+
+  function bucketFor(p){ const t = tuitionOf(p, prefs) || 0; const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null; const gap = g!=null ? (prefs.gpa - g) : 0; const costGap = (prefs.budget||0) - t; if ((g!=null && gap < 0.10) || costGap < -5000) return 'Reach'; if (gap >= 0.30 && costGap >= 0) return 'Safe'; return 'Target'; }
+
+  const FIELD_WEIGHTS = { program: 3.5, school: 2.4, city: 1.8, state: 1.6, programType: 2.2, desc: 1.0 };
+  const SYNONYMS = { 'mis':'management information systems msis is mis', 'msis':'management information systems mis', 'mba':'master of business administration mba', 'ba':'business analytics analytics msba', 'msba':'business analytics analytics', 'ds':'data science', 'cs':'computer science' };
+  const SEARCH = { vocab:new Map(), postings:new Map(), doclens:new Map(), lastScores:null };
+  const ascii = s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  function normalizeText(s){ return ascii(String(s||'').toLowerCase()).replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim(); }
+  function tokenize(s){ return normalizeText(s).split(/\s+/).filter(Boolean); }
+
+  function addToIndex(id, field, text){ const toks = tokenize(text); SEARCH.doclens.set(id, (SEARCH.doclens.get(id)||0)+toks.length); const freq = new Map(); toks.forEach(t=>{ freq.set(t, (freq.get(t)||0)+1); }); for(const [t, tf] of freq){ if(!SEARCH.postings.has(t)) SEARCH.postings.set(t, new Map()); if(!SEARCH.vocab.has(t)) SEARCH.vocab.set(t, 0); const byDoc = SEARCH.postings.get(t); if(!byDoc.has(id)) { byDoc.set(id, {}); SEARCH.vocab.set(t, SEARCH.vocab.get(t)+1); } byDoc.get(id)[field] = (byDoc.get(id)[field]||0) + tf; } }
+  function buildIndex(){ SEARCH.vocab.clear(); SEARCH.postings.clear(); SEARCH.doclens.clear(); SEARCH.lastScores=null; for(const p of DATA){ addToIndex(p.id,'program', p.program); addToIndex(p.id,'school', p.school); addToIndex(p.id,'city', p.city); addToIndex(p.id,'state', p.state); addToIndex(p.id,'programType', p.programType); addToIndex(p.id,'desc', p.desc||''); for(const [k,v] of Object.entries(SYNONYMS)){ if(new RegExp(`\\b${k}\\b`,'i').test(p.program) || new RegExp(`\\b${k}\\b`,'i').test(p.programType)){ addToIndex(p.id,'desc', v); } } } }
+  function expandSynonyms(tok){ return (SYNONYMS[tok]||'').split(/\s+/).filter(Boolean); }
+  function similarTokens(tok){ const out=[]; if(tok.length<3) return out; const maxEdit=1; for(const t of SEARCH.vocab.keys()){ if(Math.abs(t.length - tok.length) > maxEdit) continue; if(t.startsWith(tok) || tok.startsWith(t)) { out.push(t); continue; } if(editDistance(t, tok) <= maxEdit) out.push(t); } return out; }
+  function editDistance(a,b){ const m=a.length,n=b.length; const dp=Array.from({length:m+1},()=>Array(n+1).fill(0)); for(let i=0;i<=m;i++) dp[i][0]=i; for(let j=0;j<=n;j++) dp[0][j]=j; for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){ const cost = a[i-1]===b[j-1]?0:1; dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost); } return dp[m][n]; }
+
+  function parseQuery(q){ const must=[], should=[], not=[], phrases=[]; const filters={}; const rx=/("[^"]+")|(\S+)/g; let m; if(!q) return {must,should,not,phrases,filters}; while((m=rx.exec(q))){ const raw=(m[1]||m[2]||'').trim(); if(!raw) continue; if(raw.startsWith('"')&&raw.endsWith('"')){ phrases.push(raw.slice(1,-1)); continue; } if(raw.includes(':')){ const [k,valRaw] = raw.split(':'); const val=valRaw.replace(/^"|"$/g,''); switch(k.toLowerCase()){ case 'state': (filters.states||(filters.states=[])).push(normalizeStateToken(val)); break; case 'city': (filters.cities||(filters.cities=[])).push(val.toLowerCase()); break; case 'area': (filters.areas||(filters.areas=[])).push(val.toLowerCase()); break; case 'waiver': (filters.waivers||(filters.waivers=[])).push(val.toLowerCase()); break; case 'stem': filters.stem = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'aid': filters.aid = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'gpa<': case 'gpa<=': case 'gpa>': case 'gpa>=': case 'gpa=': filters.gpaCmp={op:k.slice(3), val:parseFloat(val)}; break; case 'tuition<': case 'tuition<=': case 'tuition>': case 'tuition>=': case 'tuition=': filters.tuitionCmp={op:k.slice(7), val:parseFloat(val)}; break; default: if(k.toLowerCase()==='state='){ (filters.states||(filters.states=[])).push(normalizeStateToken(val)); } } continue; } if(raw.startsWith('-')){ not.push(raw.slice(1)); continue; } if(raw.includes('|')){ raw.split('|').forEach(t=> t && should.push(t)); continue; } must.push(raw); } return {must, should, not, phrases, filters}; }
+  function fieldFilterPass(p, filters){ if(!filters) return true; if(filters.states && filters.states.length && !filters.states.includes(p.state)) return false; if(filters.cities && filters.cities.length && !filters.cities.includes(p.city.toLowerCase())) return false; if(filters.areas && filters.areas.length){ const a=(p.programType||'').toLowerCase(); if(!filters.areas.some(x=>a.includes(x))) return false; } if(filters.waivers && filters.waivers.length){ const w=(p.waiverType||'').toLowerCase(); if(!filters.waivers.some(x=>w.includes(x))) return false; } if(typeof filters.stem==='boolean' && filters.stem && !p.stem) return false; if(typeof filters.aid==='boolean' && filters.aid && !(p.assistantship||p.scholarships)) return false; if(filters.gpaCmp){ const g=isKnownMinGpa(p.gpaMin)?p.gpaMin:Infinity; if(!compareNum(g, filters.gpaCmp.op, filters.gpaCmp.val)) return false; } if(filters.tuitionCmp){ const t=tuitionOf(p, prefs)||Infinity; if(!compareNum(t, filters.tuitionCmp.op, filters.tuitionCmp.val)) return false; } return true; }
+  function compareNum(a, op, b){ switch(op){ case '<': return a<b; case '<=':return a<=b; case '>':return a>b; case '>=':return a>=b; case '=': return a===b; default: return true; } }
+  function bm25Score(tf, df, N, dl, avgdl, w){ if(tf<=0) return 0; const k1=1.2, b=0.75; const idf=Math.log(1 + (N - df + 0.5)/(df + 0.5)); return idf * ((tf*(k1+1))/(tf + k1*(1 - b + b*(dl/avgdl)))) * (w||1); }
+
+  function searchScores(){ const {must, should, not, phrases, filters} = parseQuery(prefs.query); const N = DATA.length; const avgdl = Array.from(SEARCH.doclens.values()).reduce((a,b)=>a+b,0)/Math.max(N,1); const candidates = new Set(); const expandToken = tok => [tok, ...expandSynonyms(tok), ...similarTokens(tok)]; must.forEach(tok=> expandToken(tok.toLowerCase()).forEach(t=>{ const post=SEARCH.postings.get(t); if(post) post.forEach((_,id)=>candidates.add(id)); })); if(must.length===0 && should.length===0 && phrases.length===0){ return {scores:null, filters}; } const vocabTokens = new Set(); [...must, ...should].forEach(tok=> expandToken(tok.toLowerCase()).forEach(t=>vocabTokens.add(t))); const scores = new Map(); const penalize = new Set(); const consider = candidates.size ? Array.from(candidates) : DATA.map(x=>x.id); for(const id of consider){ const p = DATA.find(x=>x.id===id); if(!p) continue; if(!fieldFilterPass(p, filters)) { penalize.add(id); continue; } let docScore = 0; const dl = SEARCH.doclens.get(id)||1; for(const tok of vocabTokens){ const post = SEARCH.postings.get(tok); if(!post) continue; const tfByField = post.get(id); if(!tfByField) continue; for(const [field, tf] of Object.entries(tfByField)){ const df = SEARCH.vocab.get(tok)||1; const w = FIELD_WEIGHTS[field]||1; docScore += bm25Score(tf, df, N, dl, avgdl, w); } } if(phrases.length){ const hay = `${p.program} ${p.school} ${p.city} ${p.state} ${p.programType} ${p.desc||''}`.toLowerCase(); phrases.forEach(ph=>{ if(hay.includes(ph.toLowerCase())) docScore += 4.5; }); } const mustOk = must.length===0 || must.every(tok=>{ const ex = expandToken(tok.toLowerCase()); return ex.some(t=>{ const post=SEARCH.postings.get(t); return post && post.has(id); }); }); const notOk = not.length===0 || not.every(tok=>{ const post=SEARCH.postings.get(tok.toLowerCase()); return !post || !post.has(id); }); if(!mustOk || !notOk) continue; const shouldHits = should.filter(tok=>{ const ex=expandToken(tok.toLowerCase()); return ex.some(t=>{ const post=SEARCH.postings.get(t); return post && post.has(id);}); }).length; docScore += shouldHits * 2.0; if(docScore>0) scores.set(id, docScore); }
+    penalize.forEach(id=>{ scores.delete(id); }); return {scores, filters}; }
+
+  function scoreProgram(p){ const t = tuitionOf(p, prefs); const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null; if (g!=null && g > prefs.gpa + 0.05) return -Infinity; if (typeof t==='number' && t > prefs.budget * 1.4) return -Infinity; let s = 0; s += Math.max(0, 40 - Math.round(Math.max(0, (t||0) - prefs.budget)/1000)); const gGap = g!=null ? (prefs.gpa - g) : 0; s += Math.max(0, Math.round(gGap * 10)); if (prefs.waiver==='any') s += 5; else if (prefs.waiver===(p.waiverType||'')) s += 15; else if ((p.waiverType||'').includes('gpa') && prefs.waiver.includes('gpa')) s += 8; if (prefs.area==='any') s += 5; else if ((p.programType||'').toLowerCase().includes(prefs.area)) s += 18; if (prefs.stateSelect) s += (p.state===prefs.stateSelect ? 10 : 0); if (prefs.states.length) s += (prefs.states.includes(p.state) ? 8 : 0); s += Math.round((p.brandScore||20)/15); if (SEARCH.lastScores && SEARCH.lastScores.has(p.id)) s += SEARCH.lastScores.get(p.id); return s; }
+
+  function parseDate(d){ if(!d) return null; const t = Date.parse(d); if(!Number.isNaN(t)) return new Date(t); const try2 = Date.parse(String(d).replace(/\//g,'-')); return Number.isNaN(try2) ? null : new Date(try2); }
+
+  function esc(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+  function hiTokens(text, tokens){ if(!tokens || !tokens.length) return esc(text); let out = esc(text); tokens.forEach(tok=>{ const rx = new RegExp('('+tok.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+')','ig'); out = out.replace(rx,'<mark>$1</mark>'); }); return out; }
+  function bucketClass(lbl){ return 'bucket '+(lbl==='Reach'?'reach':lbl==='Safe'?'safe':''); }
+
+  function card(p,isTop=false){ const t = tuitionOf(p,prefs); const savedNow = isSaved(p.id); const bucket = bucketFor(p); const {must, should, phrases} = parseQuery(prefs.query); const qTokens = [...must, ...should, ...phrases].map(x=>x.toString()); const tuitionLabel = prefs.tuitionType==='inState' ? `In-State${prefs.residencyState?` • ${prefs.residencyState}`:' • (fallback shown)'}` : (prefs.tuitionType==='outState'? `Out-of-State${prefs.residencyState?` • excl ${prefs.residencyState}`:''}` : 'International'); const minGpaText = fmtMinGpa(p.gpaMin); return `
+      <article class="card" tabindex="0">
+        <div class="row">
+          <div>
+            <div style="font-weight:700;font-size:${isTop?'22px':'18px'}">${hiTokens(p.program,qTokens)}</div>
+            <div class="muted">${hiTokens(p.school,qTokens)} • ${hiTokens(p.city,qTokens)}, ${esc(p.state)}</div>
+            <div class="badges">
+              <span class="badge ${bucketClass(bucket)}">${bucket}</span>
+              ${p.stem?'<span class="badge">STEM</span>':''}
+              ${(p.scholarships||p.assistantship)?'<span class="badge">Scholarships/TA</span>':''}
+              <span class="badge">${esc(p.portal||'Institution')}</span>
+              ${p.brandScore?'<span class="badge">Brand ★ '+p.brandScore+'</span>':''}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="muted">Tuition (${tuitionLabel})</div>
+            <div style="font-weight:700;font-size:${isTop?'22px':'18px'}">${typeof t==='number' ? currency(t) : '—'}</div>
+            <div class="muted" style="margin-top:6px">Min GPA ${minGpaText}</div>
+          </div>
+        </div>
+        ${isTop?`<div style="margin-top:10px">${hiTokens(p.desc||'',qTokens)}</div>`:''}
+        <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px">
+          <div class="box"><div class="muted">Test Policy</div><div>${esc(p.waiver||'')}</div></div>
+          <div class="box"><div class="muted">Deadline</div><div>${esc(p.deadline||'')}</div></div>
+        </div>
+        <div class="row" style="gap:8px;margin-top:12px">
+          <a href="${p.link||'#'}" target="_blank" rel="noreferrer" class="btn primary">Program Site</a>
+          <button class="btn" data-detail="${p.id}">Details</button>
+          <button class="btn" data-save="${p.id}">${savedNow?'Unsave':'Save'}</button>
+        </div>
+      </article>`; }
+
+  function tuitionGuard(){ if (prefs.tuitionType==='inState' && !prefs.residencyState){ if (prefs.stateSelect) { prefs.residencyState = prefs.stateSelect; return {block:false, message:''}; } if (prefs.states && prefs.states.length===1) { prefs.residencyState = prefs.states[0]; return {block:false, message:''}; } return {block:false, message:'Tip: set your residency to compute true in-state tuition. Showing out-of-state numbers until then.'}; } return {block:false, message:''}; }
+
+  function filterData(){ const {scores, filters} = searchScores(); SEARCH.lastScores = scores; return DATA.filter(p=>{ const t = tuitionOf(p, prefs); const gKnown = isKnownMinGpa(p.gpaMin); const gpaOk  = !gKnown || p.gpaMin <= prefs.gpa + 0.05; const tOk    = (typeof t!== 'number') || (t <= prefs.budget * 1.4); const stemOk = !prefs.stem || p.stem; const aidOk  = !prefs.aid || (p.assistantship || p.scholarships); const areaOk = prefs.area==='any' || String(p.programType||'').toLowerCase().includes(prefs.area); let residencyOk = true; if (prefs.tuitionType==='inState'){ residencyOk = !prefs.residencyState || p.state === prefs.residencyState; } else if (prefs.tuitionType==='outState'){ residencyOk = !prefs.residencyState || p.state !== prefs.residencyState; } const stateSelectOk = !prefs.stateSelect || p.state === prefs.stateSelect; const statesOk = !prefs.states.length || prefs.states.includes(p.state); const advancedOk = fieldFilterPass(p, filters||{}); const textOk = (scores==null) || (scores && scores.has(p.id)); return gpaOk && tOk && stemOk && aidOk && areaOk && residencyOk && stateSelectOk && statesOk && advancedOk && textOk; }); }
+
+  function sortData(list){ if (prefs.sortBy==='popularity') return byPopularity(list); if (prefs.sortBy==='tuition') return list.slice().sort((a,b)=> (tuitionOf(a,prefs)||Infinity) - (tuitionOf(b,prefs)||Infinity)); if (prefs.sortBy==='gpa') return list.slice().sort((a,b)=> { const ga = isKnownMinGpa(a.gpaMin) ? a.gpaMin : Infinity; const gb = isKnownMinGpa(b.gpaMin) ? b.gpaMin : Infinity; return ga - gb; }); if (prefs.sortBy==='deadline') return list.slice().sort((a,b)=>{ const da = parseDate(a.deadline) || new Date('2999-12-31'); const db = parseDate(b.deadline) || new Date('2999-12-31'); return da - db; }); return list.map(p=>({p,score:scoreProgram(p)})).sort((a,b)=>b.score-a.score).map(x=>x.p); }
+
+  function isSaved(id){ return saved.has(String(id)); }
+  function updateSavedExport(){ $('#exportCsv').textContent = `Export shortlist CSV (${saved.size})`; $('#exportJson').textContent = `Export shortlist JSON (${saved.size})`; }
+  function saveToggle(id){ id = String(id); if (saved.has(id)) { saved.delete(id); toast('Removed from shortlist'); } else { saved.add(id); toast('Saved to shortlist'); } persistSaved(); updateSavedExport(); render(); }
+
+  function render(){ const guard = tuitionGuard(); const infoParts = []; if (guard.message) infoParts.push(guard.message); const hints = []; if (prefs.area === 'mba' && prefs.stem) hints.push('Most MBAs are not STEM. Uncheck “STEM only” to see MBA results.'); if (prefs.area === 'mba' && prefs.gpa < 3.0) hints.push('Your GPA filter may hide MBAs with 3.0 minimums. Try ≥ 3.0.'); const hasHints = hints.length > 0; if (hasHints) infoParts.push(hints.join(' ')); $('#info').textContent = infoParts.join(' '); const filtered = filterData(); const count = filtered.length; $('#matchCount').textContent = count; let source = filtered; let msg = ''; if (source.length===0){ source = byPopularity(DATA); msg = 'No exact matches for your filters/search. Showing Featured programs instead.'; } const ranked = sortData(source); const top = ranked[0]; const rest = ranked.slice(1, 24); if (!guard.message && !hasHints) $('#info').textContent = msg; $('#topWrap').innerHTML = top ? `<div class="sub" style="margin:6px 0">${prefs.sortBy==='popularity'?'Featured program':'Top match / featured'}</div>` + card(top,true) : ''; $('#listLabel').textContent = ranked.length>1 ? (prefs.sortBy==='tuition'?'Other by budget':'Other options') : ''; if(!rest.length && !top){ $('#list').innerHTML = `<div class="dropzone">No programs yet. Import <code>programs.json</code> files or drop them here.</div>`; } else { $('#list').innerHTML = rest.map(p=>card(p)).join(''); } $$('#list [data-detail], #topWrap [data-detail]').forEach(b=>b.addEventListener('click', e=>openDetail(parseInt(e.currentTarget.getAttribute('data-detail'))))); $$('#list [data-save], #topWrap [data-save]').forEach(b=>b.addEventListener('click', e=>saveToggle(e.currentTarget.getAttribute('data-save')))); autoCompact(); }
+
+  let lastFocused = null;
+  function openDetail(id){ const p = DATA.find(x=>String(x.id)===String(id)); if(!p) return; lastFocused = document.activeElement; $('#mTitle').textContent = p.program; $('#mSub').textContent = `${p.school} • ${p.city}, ${p.state}`; $('#mDesc').textContent = p.desc||''; $('#mIn').textContent = typeof p.inState==='number'?currency(p.inState):'—'; $('#mOut').textContent = typeof p.outState==='number'?currency(p.outState):'—'; $('#mIntl').textContent = typeof p.international==='number'?currency(p.international):'—'; $('#mMinGpa').textContent = fmtMinGpa(p.gpaMin); $('#mWaiver').textContent = p.waiver||''; $('#mDeadline').textContent = p.deadline||''; const badges = []; if(p.stem) badges.push('<span class="badge">STEM</span>'); if(p.scholarships||p.assistantship) badges.push('<span class="badge">Scholarships/TA</span>'); badges.push('<span class="badge">'+(p.portal||'Institution')+'</span>'); if(p.brandScore) badges.push('<span class="badge">Brand ★ '+p.brandScore+'</span>'); $('#mBadges').innerHTML = badges.join(''); $('#mLink').href = p.link||'#'; const btn = $('#mSave'); btn.textContent = isSaved(p.id) ? 'Remove from Shortlist' : 'Save to Shortlist'; btn.onclick = ()=>{ saveToggle(p.id); btn.textContent = isSaved(p.id) ? 'Remove from Shortlist' : 'Save to Shortlist'; }; $('#mCopy').onclick = async ()=>{ try{ await navigator.clipboard.writeText(p.link||location.href); toast('Link copied'); }catch{ toast('Copy blocked'); } }; $('#modal').style.display='flex'; trapFocus($('#modal')); }
+  function closeModal(){ $('#modal').style.display='none'; releaseFocus(); if(lastFocused) lastFocused.focus(); }
+
+  let previousFocusHandlers = [];
+  function trapFocus(container){ const focusable = container.querySelectorAll('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'); const first = focusable[0]; const last = focusable[focusable.length-1]; function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); closeModal(); return; } if(e.key!=='Tab') return; if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); } } previousFocusHandlers.push(onKey); document.addEventListener('keydown', onKey); first && first.focus(); }
+  function releaseFocus(){ const fn = previousFocusHandlers.pop(); if(fn) document.removeEventListener('keydown', fn); }
+
+  function exportData(){ const payload = JSON.stringify(DATA,null,2); downloadBlob(payload, 'application/json', 'programs.json'); }
+  function sanitizeProgram(raw){ const p = {...raw}; const toNum = v=>{ if (v === '' || v == null) return undefined; const n = typeof v === 'number' ? v : Number(v); return Number.isFinite(n) ? n : undefined; }; p.id = (raw.id!=null?String(raw.id):'').trim()||undefined; if(!p.id){ p.id = Date.now().toString(36)+Math.random().toString(36).slice(2,8); } const g = typeof raw.gpaMin==='number' ? raw.gpaMin : parseFloat(raw.gpaMin); p.gpaMin = isKnownMinGpa(g) ? +g : undefined; p.inState = toNum(p.inState); p.outState = toNum(p.outState); p.international = toNum(p.international); p.brandScore = toNum(p.brandScore); p.school = (p.school||'').trim(); p.program = (p.program||'').trim(); p.city = (p.city||'').trim(); p.state = normalizeStateToken(p.state||''); p.programType = (p.programType||'').toString().toLowerCase(); return p; }
+  function keyFor(p){ return (p.school||'').toLowerCase()+ '|' + (p.program||'').toLowerCase(); }
+
+  function mergePrograms(arr){ const stats = {added:0, updated:0, skipped:{dupeId:0, dupeKey:0, invalid:0}}; if(!Array.isArray(arr)) return stats; const idIndex = new Map(); const keyIndex = new Map(); DATA.forEach((d,i)=>{ idIndex.set(String(d.id), i); keyIndex.set(keyFor(d), i); }); for(const raw of arr){ if(!raw) { stats.skipped.invalid++; continue; } const p = sanitizeProgram(raw); if(!p.school || !p.program){ stats.skipped.invalid++; continue; } const k = keyFor(p); if(keyIndex.has(k)){ const i = keyIndex.get(k); const before = DATA[i]; const merged = { ...before, ...p, id: before.id }; DATA[i] = merged; stats.updated++; continue; } if(p.id!=null && idIndex.has(String(p.id))){ stats.skipped.dupeId++; p.id = Date.now().toString(36)+Math.random().toString(36).slice(2,8); } DATA.push(p); idIndex.set(String(p.id), DATA.length-1); keyIndex.set(k, DATA.length-1); stats.added++; } return stats; }
+
+  function importStateOrPrograms(payload){ if(Array.isArray(payload)){ const s = mergePrograms(payload); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && Array.isArray(payload.programs)){ const s = mergePrograms(payload.programs); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && (Array.isArray(payload.data) || Array.isArray(payload.dataset))){ const arr = payload.data || payload.dataset; const s = mergePrograms(arr); afterImportPersistAndRender(s); buildIndex(); return s; } if(payload && (payload.prefs || payload.filters || payload.shortlist)){ const s = {added:0, updated:0, skipped:{dupeId:0,dupeKey:0,invalid:0}}; if(Array.isArray(payload.programs)){ const z = mergePrograms(payload.programs); s.added += z.added; s.updated = (s.updated||0) + (z.updated||0); s.skipped.dupeId+=z.skipped.dupeId; s.skipped.dupeKey+=z.skipped.dupeKey; s.skipped.invalid+=z.skipped.invalid; } if(payload.prefs || payload.filters){ try{ const incoming = payload.prefs || payload.filters; prefs = { ...DEFAULT_PREFS, ...prefs, ...incoming }; persistPrefs(); }catch{} } afterImportPersistAndRender(s); buildIndex(); return s; } throw new Error('JSON must be an array of programs or an object containing a "programs" array.'); }
+
+  function afterImportPersistAndRender(stats){ localStorage.setItem('gc_dataset', JSON.stringify(DATA)); refreshCount(); render(); const skippedTotal = (stats.skipped?.dupeId||0) + (stats.skipped?.dupeKey||0) + (stats.skipped?.invalid||0); toast(`Imported ${stats.added} • Updated ${stats.updated||0} • Skipped ${skippedTotal}`); }
+  function importArray(maybeArr){ return importStateOrPrograms(maybeArr); }
+  function readFileAsText(file){ return new Promise((res,rej)=>{ const r = new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsText(file); }); }
+  async function importFiles(fileList){ try{ let total={added:0, updated:0, skipped:{dupeId:0,dupeKey:0,invalid:0}}; for(const f of Array.from(fileList||[])){ try{ const text = await readFileAsText(f); const json = JSON.parse(text); const stats = importStateOrPrograms(json); total.added += stats.added; total.updated += (stats.updated||0); total.skipped.dupeId += stats.skipped.dupeId; total.skipped.dupeKey += stats.skipped.dupeKey; total.skipped.invalid += stats.skipped.invalid; }catch(inner){ toast(`${f.name}: ${inner.message||inner}`); } } toast(`Total import → Added ${total.added}; Updated ${total.updated}; Skipped ${total.skipped.dupeId+total.skipped.dupeKey+total.skipped.invalid}`); }catch(e){ toast('Import cancelled'); } }
+  async function pasteDataFromClipboard(){ try{ const text = await navigator.clipboard.readText(); const json = JSON.parse(text); importStateOrPrograms(json); }catch(e){ toast('Paste error: '+(e.message||e)); } }
+
+  function csvEscape(v){ const s=String(v??''); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+  function exportShortlistCSV(){ if(!saved.size){ toast('Shortlist is empty'); return; } const cols = ['id','school','program','city','state','tuition','minGPA','testPolicy','deadline','link','brandScore','STEM','Aid']; const header = cols.join(','); const rows = []; const idSet = new Set(saved); DATA.forEach(p=>{ if(!idSet.has(String(p.id))) return; const t = tuitionOf(p, prefs); rows.push([ p.id, p.school, p.program, p.city, p.state, (typeof t==='number'?t:''), (isKnownMinGpa(p.gpaMin)?p.gpaMin:''), (p.waiver??''), (p.deadline??''), (p.link??''), (p.brandScore??''), (p.stem?'Yes':'No'), ((p.assistantship||p.scholarships)?'Yes':'No') ].map(csvEscape).join(',')); }); const csv = [header, ...rows].join('\n'); downloadBlob('\ufeff'+csv, 'text/csv;charset=utf-8', 'gradchoice_shortlist.csv'); }
+  function exportShortlistJSON(){ if(!saved.size){ toast('Shortlist is empty'); return; } const idSet = new Set(saved); const arr = DATA.filter(p=>idSet.has(String(p.id))); downloadBlob(JSON.stringify(arr, null, 2), 'application/json', 'gradchoice_shortlist.json'); }
+  function downloadBlob(content, mime, filename){ const blob = new Blob([content], {type:mime}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href); }
+
+  function prefsToQuery(){ const q = new URLSearchParams(); for(const [k,v] of Object.entries(prefs)){ if(k==='query' && !v) continue; if(k==='states' && Array.isArray(v) && v.length===0) continue; if(k==='residencyState' && !v) continue; if(k==='stateSelect' && !v) continue; if(Array.isArray(v)) q.set(k, v.join(',')); else q.set(k, String(v)); } return q.toString(); }
+  function applyQueryToPrefs(){ const url = new URL(location.href); const q = url.searchParams; const get = (k,d)=> q.get(k) ?? d; prefs.gpa = parseFloat(get('gpa', prefs.gpa)) || prefs.gpa; prefs.budget = parseInt(get('budget', prefs.budget)) || prefs.budget; prefs.tuitionType = get('tuitionType', prefs.tuitionType); prefs.waiver = get('waiver', prefs.waiver); prefs.area = get('area', prefs.area); const sel = normalizeStateToken(get('stateSelect','') || ''); prefs.stateSelect = sel; if (sel) { prefs.states = [sel]; } else { prefs.states = normalizeStateList(get('states','') || ''); } prefs.residencyState = normalizeStateToken(get('residencyState','') || ''); prefs.stem = get('stem', String(prefs.stem)) === 'true'; prefs.aid = get('aid',  String(prefs.aid))  === 'true'; prefs.query = get('query', prefs.query) || ''; prefs.sortBy = get('sortBy', prefs.sortBy); }
+  function updateUrl(){ try{ history.replaceState(null, '', '?' + prefsToQuery()); }catch{} }
+
+  function setupDragAndDrop(){ const zone = $('#list'); window.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('dropzone','drag'); }); window.addEventListener('dragleave', ()=> zone.classList.remove('drag')); window.addEventListener('drop', async e=>{ e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files?.length){ await importFiles(e.dataTransfer.files); buildIndex(); } }); }
+
+  // Auto-compact ("half/half when full")
+  function autoCompact(){ const count = Number($('#matchCount').textContent||'0'); const root = document.documentElement; if(count >= 12){ root.setAttribute('data-compact','true'); } else { root.removeAttribute('data-compact'); } }
+
+  function hydrateControls(){ $('#gpa').value = prefs.gpa; $('#gpaVal').textContent=prefs.gpa.toFixed(2); $('#budget').value = prefs.budget; $('#budgetVal').textContent=currency(prefs.budget); $('#area').value = prefs.area; $('#waiver').value = prefs.waiver; $('#stateSelect').value = prefs.stateSelect || ''; $('#states').value = prefs.states.join(', '); $('#residencySelect').value= prefs.residencyState || ''; $('#stem').checked = prefs.stem; $('#aid').checked = prefs.aid; $('#query').value = prefs.query; $('#sort').value = prefs.sortBy; $$('.pill').forEach(x=>{ const val=x.getAttribute('data-tuition'); const on = val===prefs.tuitionType; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); }); }
+  function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display='none', 2400); }
+  function initEvents(){ const rRender = debounce(()=>{ persistPrefs(); updateUrl(); render(); }, 60); $('#gpa').addEventListener('input', e=>{ prefs.gpa=parseFloat(e.target.value); $('#gpaVal').textContent=prefs.gpa.toFixed(2); rRender(); }); $('#budget').addEventListener('input', e=>{ prefs.budget=parseInt(e.target.value); $('#budgetVal').textContent=currency(prefs.budget); rRender(); }); $$('.pill').forEach(b=>b.addEventListener('click', e=>{ $$('.pill').forEach(x=>{x.classList.remove('active'); x.setAttribute('aria-pressed','false');}); e.currentTarget.classList.add('active'); e.currentTarget.setAttribute('aria-pressed','true'); prefs.tuitionType=e.currentTarget.getAttribute('data-tuition'); rRender(); })); $('#area').addEventListener('change', e=>{ prefs.area=e.target.value; rRender(); }); $('#waiver').addEventListener('change', e=>{ prefs.waiver=e.target.value; rRender(); }); $('#stateSelect').addEventListener('change', e=>{ prefs.stateSelect = normalizeStateToken(e.target.value); prefs.states = prefs.stateSelect ? [prefs.stateSelect] : []; $('#states').value = prefs.states.join(', '); rRender(); }); $('#states').addEventListener('input', debounce(e=>{ prefs.states = normalizeStateList(e.target.value); prefs.stateSelect = (prefs.states.length===1) ? prefs.states[0] : ''; $('#stateSelect').value = prefs.stateSelect || ''; rRender(); }, 180)); $('#residencySelect').addEventListener('change', e=>{ prefs.residencyState = normalizeStateToken(e.target.value); rRender(); }); $('#stem').addEventListener('change', e=>{ prefs.stem=e.target.checked; rRender(); }); $('#aid').addEventListener('change', e=>{ prefs.aid=e.target.checked; rRender(); }); $('#query').addEventListener('input', debounce(e=>{ prefs.query=e.target.value; rRender(); }, 120)); $('#sort').addEventListener('change', e=>{ prefs.sortBy=e.target.value; rRender(); }); $('#exportCsv').addEventListener('click', exportShortlistCSV); $('#exportJson').addEventListener('click', exportShortlistJSON); $('#clearShortlist').addEventListener('click', ()=>{ if(confirm('Clear shortlist?')){ saved.clear(); persistSaved(); updateSavedExport(); render(); } }); $('#btnExportData').addEventListener('click', exportData); $('#btnImportData').addEventListener('click', ()=>document.getElementById('fileInput').click()); $('#btnPasteData').addEventListener('click', pasteDataFromClipboard); $('#btnResetData').addEventListener('click', ()=>{ if(!confirm('Reset filters and reload the built-in demo programs?')) return; localStorage.removeItem('gc_dataset'); localStorage.removeItem('gc_saved_ids'); localStorage.removeItem('gc_prefs_v2'); saved.clear(); prefs = { ...DEFAULT_PREFS }; DATA  = DEFAULT_DATA.slice(); buildIndex(); hydrateControls(); updateSavedExport(); refreshCount(); persistPrefs(); updateUrl(); render(); }); document.getElementById('fileInput').addEventListener('change', async e=>{ const files = e.target.files; if(files && files.length) await importFiles(files); e.target.value=''; }); document.getElementById('mClose').addEventListener('click', closeModal); document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); }); document.addEventListener('keydown', e=>{ if(e.key==='/' && document.activeElement!==$('#query')){ e.preventDefault(); $('#query').focus(); $('#query').select(); } if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='c'){ if(document.activeElement===document.body){ const base = location.origin?.startsWith('http')? (location.origin + location.pathname) : location.href.split('?')[0]; const url = base + '?' + prefsToQuery(); navigator.clipboard.writeText(url).then(()=>toast('Share link copied')); } } if(e.key==='Escape'){ closeModal(); } }); }
+
+  function init(){ $('#year').textContent = new Date().getFullYear(); $('#waitlist').href = WAITLIST_URL; populateStatesInto('#stateSelect'); populateStatesInto('#residencySelect'); applyQueryToPrefs(); hydrateControls(); updateSavedExport(); refreshCount(); setupDragAndDrop(); initEvents(); buildIndex(); const candidates = ['programs.json','programs_extra.json','programs2.json']; Promise.allSettled(candidates.map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(results=>{ let merged = 0; results.forEach(res=>{ const arr = res?.value; if(Array.isArray(arr) && arr.length){ const {added} = mergePrograms(arr); merged += added; } }); if(merged>0){ localStorage.setItem('gc_dataset', JSON.stringify(DATA)); refreshCount(); buildIndex(); } render(); }).catch(()=>{ render(); }); }
+
+  init();
+</script>
+</body>
+</html>
+
