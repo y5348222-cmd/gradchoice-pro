@@ -785,28 +785,112 @@
 
   init();
 
+  <script>
+  // --- AI shortlist (web + OpenAI) ---
   async function askAI() {
-  const gpa = document.querySelector('input[name="gpa"]')?.value || 3.0;
-  const budget = document.querySelector('input[name="budget"]')?.value || 20000;
-  const program = document.querySelector('select[name="program"]')?.value || "management";
-  const state = document.querySelector('select[name="state"]')?.value || "";
-  const stemOnly = document.querySelector('input[name="stemOnly"]')?.checked || false;
+    const btn = document.querySelector('#askAi') || document.querySelector('#btnAIPick');
+    const wrap = document.querySelector('#aiWrap');
+    const meta = document.querySelector('#aiMeta');
+    const grid = document.querySelector('#aiResults');
 
-  try {
-    const response = await fetch(`/api/find-programs?gpa=${gpa}&budget=${budget}&program=${program}&state=${state}&stemOnly=${stemOnly}`);
-    const data = await response.json();
+    const $ = (s)=>document.querySelector(s);
 
-    if (data.ok) {
-      alert("AI Found Matches:\n" + JSON.stringify(data.data, null, 2));
-    } else {
-      alert("Error: " + data.error);
+    // Pull values from the existing controls
+    const gpa = ($('#gpa')?.value || 3.0);
+    const budget = ($('#budget')?.value || 25000);
+    const area = ($('#area')?.value || 'any');
+
+    // Map UI "Program Area" → natural-language field for search
+    const areaMap = {
+      mis: 'Information Systems',
+      analytics: 'Business Analytics',
+      cs: 'Computer Science',
+      'data science': 'Data Science',
+      mba: 'MBA'
+    };
+    const program = areaMap[area] || 'Computer Science';
+
+    // State: prefer the single-select; fall back to the free-text first token
+    const stateSel = $('#stateSelect')?.value || '';
+    const statesFree = ($('#states')?.value || '').trim();
+    const state = stateSel || (statesFree.split(',')[0] || '').trim() || 'Any';
+
+    const stemOnly = !!$('#stem')?.checked;
+
+    // UI: disable while loading
+    if (btn) { btn.disabled = true; btn.textContent = 'Finding…'; }
+
+    try {
+      const params = new URLSearchParams({
+        gpa: String(gpa),
+        budget: String(budget),
+        program,
+        state,
+        stemOnly: String(stemOnly)
+      });
+
+      const res = await fetch(`/api/find-programs?${params.toString()}`);
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+
+      // Show results section
+      if (wrap) wrap.style.display = 'block';
+      if (meta) {
+        meta.textContent = `Top ${data.count} · ${new Date().toLocaleTimeString()} · ${data.notes ? data.notes : ''}`;
+      }
+
+      // Small currency helper (use existing currency() if defined)
+      const formatMoney = (n)=>{
+        if (typeof currency === 'function' && Number.isFinite(n)) return currency(n);
+        return Number.isFinite(n) ? `$${Number(n).toLocaleString()}` : '—';
+      };
+
+      // Render cards
+      if (grid) {
+        grid.innerHTML = (data.programs || []).map((p, i) => `
+          <div class="card">
+            <div class="row" style="justify-content:space-between;align-items:flex-start">
+              <div style="font-weight:800">${i+1}. ${p.name || '(Program)'}</div>
+              <div class="badge">Score ${p.score ?? '—'}</div>
+            </div>
+            <div class="sub" style="margin-top:4px">${p.school || ''}</div>
+            <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+              <span class="badge">Tuition ${formatMoney(p.tuition)}</span>
+              <span class="badge">Min GPA ${p.minGpa ?? '—'}</span>
+              <span class="badge">Test ${p.testPolicy ?? '—'}</span>
+              <span class="badge">${p.stem === true ? 'STEM' : p.stem === false ? 'non-STEM' : 'STEM ?'}</span>
+              <span class="badge">Deadline ${p.deadline ?? '—'}</span>
+            </div>
+            <div class="muted" style="margin-top:8px">${p.why || ''}</div>
+            <div class="row" style="gap:8px;margin-top:10px">
+              ${p.url ? `<a class="btn primary" href="${p.url}" target="_blank" rel="noreferrer">Open program site</a>` : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Clear button
+      const clear = document.querySelector('#aiClear');
+      if (clear) {
+        clear.onclick = ()=>{
+          if (grid) grid.innerHTML = '';
+          if (wrap) wrap.style.display = 'none';
+        };
+      }
+    } catch (err) {
+      alert('AI error: ' + (err?.message || err));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Ask AI for Best Fit'; }
     }
-  } catch (err) {
-    alert("Something went wrong: " + err.message);
   }
-}
 
-document.querySelector('#btnAIPick')?.addEventListener('click', askAI);
+  // Hook up both possible IDs just in case
+  document.querySelector('#askAi')?.addEventListener('click', askAI);
+  document.querySelector('#btnAIPick')?.addEventListener('click', askAI);
+</script>
 </script>
 </body>
 </html>
