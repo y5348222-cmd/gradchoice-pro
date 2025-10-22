@@ -784,6 +784,29 @@
   function init(){ $('#year').textContent = new Date().getFullYear(); $('#waitlist').href = WAITLIST_URL; populateStatesInto('#stateSelect'); populateStatesInto('#residencySelect'); applyQueryToPrefs(); hydrateControls(); updateSavedExport(); refreshCount(); setupDragAndDrop(); initEvents(); buildIndex(); const candidates = ['programs.json','programs_extra.json','programs2.json']; Promise.allSettled(candidates.map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(results=>{ let merged = 0; results.forEach(res=>{ const arr = res?.value; if(Array.isArray(arr) && arr.length){ const {added} = mergePrograms(arr); merged += added; } }); if(merged>0){ localStorage.setItem('gc_dataset', JSON.stringify(DATA)); refreshCount(); buildIndex(); } render(); }).catch(()=>{ render(); }); }
 
   init();
+
+  async function askAI() {
+  const gpa = document.querySelector('input[name="gpa"]')?.value || 3.0;
+  const budget = document.querySelector('input[name="budget"]')?.value || 20000;
+  const program = document.querySelector('select[name="program"]')?.value || "management";
+  const state = document.querySelector('select[name="state"]')?.value || "";
+  const stemOnly = document.querySelector('input[name="stemOnly"]')?.checked || false;
+
+  try {
+    const response = await fetch(`/api/find-programs?gpa=${gpa}&budget=${budget}&program=${program}&state=${state}&stemOnly=${stemOnly}`);
+    const data = await response.json();
+
+    if (data.ok) {
+      alert("AI Found Matches:\n" + JSON.stringify(data.data, null, 2));
+    } else {
+      alert("Error: " + data.error);
+    }
+  } catch (err) {
+    alert("Something went wrong: " + err.message);
+  }
+}
+
+document.querySelector('#btnAIPick')?.addEventListener('click', askAI);
 </script>
 </body>
 </html>
