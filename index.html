@@ -519,6 +519,46 @@ function searchScores(){
   return { scores, filters };
 }
 
+function scoreProgram(p) {
+  const base = SEARCH.lastScores ? SEARCH.lastScores.get(p.id) || 0 : 0;
+  let s = base;
+
+  // Tuition vs budget
+  const t = tuitionOf(p, prefs);
+  if (Number.isFinite(t)) {
+    if (t <= prefs.budget) s += 2.0;
+    else if (t < prefs.budget * 1.2) s += 0.8;
+    else s -= 1.2;
+  }
+
+  // GPA fit
+  const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null;
+  if (g !== null) {
+    const gap = prefs.gpa - g;
+    if (gap >= 0.30) s += 1.2;
+    else if (gap >= 0.10) s += 0.5;
+    else if (gap < -0.05) s -= 1.0;
+    else s -= 0.6;
+  }
+
+  // Toggles
+  if (prefs.stem && p.stem) s += 0.8;
+  if (prefs.aid && (p.assistantship || p.scholarships)) s += 0.6;
+
+  // Geography
+  if (prefs.stateSelect && p.state === prefs.stateSelect) s += 0.7;
+  if (prefs.residencyState) {
+    if (prefs.tuitionType === 'inState' && p.state === prefs.residencyState) s += 0.7;
+    if (prefs.tuitionType === 'outState' && p.state === prefs.residencyState) s -= 0.4;
+  }
+
+  // Policy / brand
+  if (prefs.waiver !== 'any' && (p.waiverType || '') === prefs.waiver) s += 0.6;
+  if (Number.isFinite(p.brandScore)) s += p.brandScore / 300;
+
+  return s;
+}
+
 function buildAiTopCard(p, pr){
   return `
     <article class="card">
@@ -528,7 +568,7 @@ function buildAiTopCard(p, pr){
     </article>
   `;
 }
-  function card(p,isTop=false){ const t = tuitionOf(p,prefs); const savedNow = isSaved(p.id); const bucket = bucketFor(p); const {must, should, phrases} = parseQuery(prefs.query); const qTokens = [...must, ...should, ...phrases].map(x=>x.toString()); const tuitionLabel = prefs.tuitionType==='inState' ? `In-State${prefs.residencyState?` • ${prefs.residencyState}`:' • (fallback shown)'}` : (prefs.tuitionType==='outState'? `Out-of-State${prefs.residencyState?` • excl ${prefs.residencyState}`:''}` : 'International'); const minGpaText = fmtMinGpa(p.gpaMin); return `
+  function card(p,isTop=false){ const t = tuitionOf(p,prefs); const savedNow = isSaved(p.id); const bucket = bucketFor(p); const tuitionLabel = prefs.tuitionType==='inState' ? `In-State${prefs.residencyState?` • ${prefs.residencyState}`:' • (fallback shown)'}` : (prefs.tuitionType==='outState'? `Out-of-State${prefs.residencyState?` • excl ${prefs.residencyState}`:''}` : 'International'); const minGpaText = fmtMinGpa(p.gpaMin); return `
       <article class="card" tabindex="0">
         <div class="row">
           <div>
