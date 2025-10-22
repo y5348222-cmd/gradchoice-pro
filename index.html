@@ -366,48 +366,168 @@
   function similarTokens(tok){ const out=[]; if(tok.length<3) return out; const maxEdit=1; for(const t of SEARCH.vocab.keys()){ if(Math.abs(t.length - tok.length) > maxEdit) continue; if(t.startsWith(tok) || tok.startsWith(t)) { out.push(t); continue; } if(editDistance(t, tok) <= maxEdit) out.push(t); } return out; }
   function editDistance(a,b){ const m=a.length,n=b.length; const dp=Array.from({length:m+1},()=>Array(n+1).fill(0)); for(let i=0;i<=m;i++) dp[i][0]=i; for(let j=0;j<=n;j++) dp[0][j]=j; for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){ const cost = a[i-1]===b[j-1]?0:1; dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost); } return dp[m][n]; }
 
-  function parseQuery(q){ const must=[], should=[], not=[], phrases=[]; const filters={}; const rx=(/("[^"]+")|(\S+)/g); let m; if(!q) return {must,should,not,phrases,filters}; while((m=rx.exec(q))){ const raw=(m[1]||m[2]||'').trim(); if(!raw) continue; if(raw.startsWith('"')&&raw.endsWith('"')){ phrases.push(raw.slice(1,-1)); continue; } if(raw.includes(':')){ const [k,valRaw] = raw.split(':'); const val=valRaw.replace(/^"|"$/g,''); switch(k.toLowerCase()){ case 'state': (filters.states||(filters.states=[])).push(normalizeStateToken(val)); break; case 'city': (filters.cities||(filters.cities=[])).push(val.toLowerCase()); break; case 'area': (filters.areas||(filters.areas=[])).push(val.toLowerCase()); break; case 'waiver': (filters.waivers||(filters.waivers=[])).push(val.toLowerCase()); break; case 'stem': filters.stem = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'aid': filters.aid = ['true','1','yes','y'].includes(val.toLowerCase()); break; case 'gpa<': case 'gpa<=': case 'gpa>': case 'gpa>=': case 'gpa=': filters.gpaCmp={op:k.slice(3), val:parseFloat(val)}; break; case 'tuition<': case 'tuition<=': case 'tuition>': case 'tuition>=': case 'tuition=': filters.tuitionCmp={op:k.slice(7), val:parseFloat(val)}; break; default: if(k.toLowerCase()==='state='){ (filters.states||(filters.states=[])).push(normalizeStateToken(val)); } } continue; } if(raw.startsWith('-')){ not.push(raw.slice(1)); continue; } if(raw.includes('|')){ raw.split('|').forEach(t=> t && should.push(t)); continue; } must.push(raw); } return {must, should, not, phrases, filters}; }
-  function fieldFilterPass(p, filters){ if(!filters) return true; if(filters.states && filters.states.length && !filters.states.includes(p.state)) return false; if(filters.cities && filters.cities.length && !filters.cities.includes(p.city.toLowerCase())) return false; if(filters.areas && filters.areas.length){ const a=(p.programType||'').toLowerCase(); if(!filters.areas.some(x=>a.includes(x))) return false; } if(filters.waivers && filters.waivers.length){ const w=(p.waiverType||'').toLowerCase(); if(!filters.waivers.some(x=>w.includes(x))) return false; } if(typeof filters.stem==='boolean' && filters.stem && !p.stem) return false; if(typeof filters.aid==='boolean' && filters.aid && !(p.assistantship||p.scholarships)) return false; if(filters.gpaCmp){ const g=isKnownMinGpa(p.gpaMin)?p.gpaMin:Infinity; if(!compareNum(g, filters.gpaCmp.op, filters.gpaCmp.val)) return false; } if(filters.tuitionCmp){ const t=tuitionOf(p, prefs)||Infinity; if(!compareNum(t, filters.tuitionCmp.op, filters.tuitionCmp.val)) return false; } return true; }
-  function compareNum(a, op, b){ switch(op){ case '<': return a<b; case '<=':return a<=b; case '>':return a>b; case '>=':return a>=b; case '=': return a===b; default: return true; } }
-  function bm25Score(tf, df, N, dl, avgdl, w){ if(tf<=0) return 0; const k1=1.2, b=0.75; const idf=Math.log(1 + (N - df + 0.5)/(df + 0.5)); return idf * ((tf*(k1+1))/(tf + k1*(1 - b + b*(dl/avgdl)))) * (w||1); }
+  function parseQuery(q){
+  const must=[], should=[], not=[], phrases=[];
+  const filters={};
+  const rx = /"([^"]+)"|(\S+)/g; // phrases or single tokens
+  let m;
+  if(!q) return {must,should,not,phrases,filters};
 
-  function searchScores(){ const {must, should, not, phrases, filters} = parseQuery(prefs.query); const N = DATA.length; const avgdl = Array.from(SEARCH.doclens.values()).reduce((a,b)=>a+b,0)/Math.max(N,1); const candidates = new Set(); const expandToken = tok => [tok, ...expandSynonyms(tok), ...similarTokens(tok)]; must.forEach(tok=> expandToken(tok.toLowerCase()).forEach(t=>{ const post=SEARCH.postings.get(t); if(post) post.forEach((_,id)=>candidates.add(id)); })); if(must.length===0 && should.length===0 && phrases.length===0){ return {scores:null, filters}; } const vocabTokens = new Set(); [...must, ...should].forEach(tok=> expandToken(tok.toLowerCase()).forEach(t=>vocabTokens.add(t))); const scores = new Map(); const penalize = new Set(); const consider = candidates.size ? Array.from(candidates) : DATA.map(x=>x.id); for(const id of consider){ const p = DATA.find(x=>x.id===id); if(!p) continue; if(!fieldFilterPass(p, filters)) { penalize.add(id); continue; } let docScore = 0; const dl = SEARCH.doclens.get(id)||1; for(const tok of vocabTokens){ const post = SEARCH.postings.get(tok); if(!post) continue; const tfByField = post.get(id); if(!tfByField) continue; for(const [field, tf] of Object.entries(tfByField)){ const df = SEARCH.vocab.get(tok)||1; const w = FIELD_WEIGHTS[field]||1; docScore += bm25Score(tf, df, N, dl, avgdl, w); } } if(phrases.length){ const hay = `${p.program} ${p.school} ${p.city} ${p.state} ${p.programType} ${p.desc||''}`.toLowerCase(); phrases.forEach(ph=>{ if(hay.includes(ph.toLowerCase())) docScore += 4.5; }); } const mustOk = must.length===0 || must.every(tok=>{ const ex = expandToken(tok.toLowerCase()); return ex.some(t=>{ const post=SEARCH.postings.get(t); return post && post.has(id); }); }); const notOk = not.length===0 || not.every(tok=>{ const post=SEARCH.postings.get(tok.toLowerCase()); return !post || !post.has(id); }); if(!mustOk || !notOk) continue; const shouldHits = should.filter(tok=>{ const ex=expandToken(tok.toLowerCase()); return ex.some(t=>{ const post=SEARCH.postings.get(t); return post && post.has(id);}); }).length; docScore += shouldHits * 2.0; if(docScore>0) scores.set(id, docScore); }
-    penalize.forEach(id=>{ scores.delete(id); }); return {scores, filters}; }
+  while((m = rx.exec(q))){
+    const raw = (m[1] || m[2] || '').trim();
+    if(!raw) continue;
 
-  function scoreProgram(p){ const t = tuitionOf(p, prefs); const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : null; if (g!=null && g > prefs.gpa + 0.05) return -Infinity; if (typeof t==='number' && t > prefs.budget * 1.4) return -Infinity; let s = 0; s += Math.max(0, 40 - Math.round(Math.max(0, (t||0) - prefs.budget)/1000)); const gGap = g!=null ? (prefs.gpa - g) : 0; s += Math.max(0, Math.round(gGap * 10)); if (prefs.waiver==='any') s += 5; else if (prefs.waiver===(p.waiverType||'')) s += 15; else if ((p.waiverType||'').includes('gpa') && prefs.waiver.includes('gpa')) s += 8; if (prefs.area==='any') s += 5; else if ((p.programType||'').toLowerCase().includes(prefs.area)) s += 18; if (prefs.stateSelect) s += (p.state===prefs.stateSelect ? 10 : 0); if (prefs.states.length) s += (prefs.states.includes(p.state) ? 8 : 0); s += Math.round((p.brandScore||20)/15); if (SEARCH.lastScores && SEARCH.lastScores.has(p.id)) s += SEARCH.lastScores.get(p.id); return s; }
+    // "exact phrase"
+    if (m[1]) { phrases.push(raw); continue; }
 
-  // ----- (local AI pick helpers kept for compatibility but no longer used by the button) -----
-  function buildAiTopCard(p, pr, tokens){
-    const queryTokens = Array.isArray(tokens) ? tokens : [];
-    const tuition = tuitionOf(p, pr);
-    const tuitionText = Number.isFinite(tuition) ? currency(tuition) : '—';
-    const tuitionLabel = describeTuitionPreference(pr);
-    const badges = [];
-    if(p.stem) badges.push('<span class="badge">STEM</span>');
-    if(p.scholarships||p.assistantship) badges.push('<span class="badge">Scholarships/TA</span>');
-    if(p.brandScore) badges.push('<span class="badge">Brand ★ '+p.brandScore+'</span>');
-    const badgesHtml = badges.length ? `<div class="badges" style="margin-top:8px">${badges.join('')}</div>` : '';
-    return `
-      <article class="card glass">
-        <div class="row" style="align-items:flex-start">
-          <div>
-            <div style="font-weight:700;font-size:22px">${p.program}</div>
-            <div class="muted">${p.school} • ${p.city}, ${p.state}</div>
-            ${badgesHtml}
-          </div>
-          <div style="text-align:right">
-            <div class="muted">Tuition (${tuitionLabel})</div>
-            <div style="font-weight:700;font-size:22px">${tuitionText}</div>
-            <div class="muted" style="margin-top:6px">Min GPA ${fmtMinGpa(p.gpaMin)}</div>
-          </div>
-        </div>
-        <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px">
-          <div class="box"><div class="muted">Test Policy</div><div>${p.waiver||'—'}</div></div>
-          <div class="box"><div class="muted">Deadline</div><div>${p.deadline||'—'}</div></div>
-        </div>
-      </article>`;
+    // -exclude
+    if (raw.startsWith('-')) { not.push(raw.slice(1)); continue; }
+
+    // a|b (OR)
+    if (raw.includes('|')) { raw.split('|').forEach(t => t && should.push(t)); continue; }
+
+    // NEW: no-colon numeric filters → tuition<30000, gpa>=3.2
+    const mNum = raw.match(/^([a-z]+)([<>]=?|=)([0-9.]+)$/i);
+    if (mNum) {
+      const key = mNum[1].toLowerCase();
+      const op  = mNum[2];
+      const val = parseFloat(mNum[3]);
+      if (key === 'gpa')          filters.gpaCmp     = { op, val };
+      else if (key === 'tuition') filters.tuitionCmp = { op, val };
+      continue;
+    }
+
+    // Colon filters still work → state:TX area:cs waiver:optional stem:true aid:true
+    if (raw.includes(':')) {
+      const [k, valRaw] = raw.split(':');
+      const val = (valRaw || '').replace(/^"|"$/g,'');
+      switch(String(k).toLowerCase()){
+        case 'state':  (filters.states||(filters.states=[])).push(normalizeStateToken(val)); break;
+        case 'city':   (filters.cities||(filters.cities=[])).push(val.toLowerCase()); break;
+        case 'area':   (filters.areas||(filters.areas=[])).push(val.toLowerCase()); break;
+        case 'waiver': (filters.waivers||(filters.waivers=[])).push(val.toLowerCase()); break;
+        case 'stem':   filters.stem = ['true','1','yes','y'].includes(val.toLowerCase()); break;
+        case 'aid':    filters.aid  = ['true','1','yes','y'].includes(val.toLowerCase()); break;
+        // legacy numeric-with-colon (optional)
+        case 'gpa<': case 'gpa<=': case 'gpa>': case 'gpa>=': case 'gpa=':
+          filters.gpaCmp = { op:k.slice(3), val:parseFloat(val) }; break;
+        case 'tuition<': case 'tuition<=': case 'tuition>': case 'tuition>=': case 'tuition=':
+          filters.tuitionCmp = { op:k.slice(7), val:parseFloat(val) }; break;
+        // also accept state=CA
+        case 'state=':
+          (filters.states||(filters.states=[])).push(normalizeStateToken(val)); break;
+      }
+      continue;
+    }
+
+    // otherwise it's a must-term
+    must.push(raw);
   }
 
+  return {must, should, not, phrases, filters};
+}
+function fieldFilterPass(p, filters){
+  if(!filters) return true;
+  if(filters.states && filters.states.length && !filters.states.includes(p.state)) return false;
+  if(filters.areas && filters.areas.length && !filters.areas.includes(p.programType)) return false;
+  if(filters.cities && filters.cities.length && !filters.cities.includes(p.city.toLowerCase())) return false;
+  if(filters.waivers && filters.waivers.length && !filters.waivers.includes((p.waiverType || '').toLowerCase())) return false;
+  if(typeof filters.stem === 'boolean' && p.stem !== filters.stem) return false;
+  if(typeof filters.aid === 'boolean' && (p.assistantship || p.scholarships) !== filters.aid) return false;
+
+  if(filters.gpaCmp){
+    const g = isKnownMinGpa(p.gpaMin) ? p.gpaMin : Infinity;
+    if(!compareNum(g, filters.gpaCmp.op, filters.gpaCmp.val)) return false;
+  }
+
+  // NEW: numeric tuition filter like tuition<30000, tuition>=40000, etc.
+  if (filters.tuitionCmp) {
+    const t = tuitionOf(p, prefs);
+    if (!Number.isFinite(t) || !compareNum(t, filters.tuitionCmp.op, filters.tuitionCmp.val)) return false;
+  }
+
+  return true;
+}
+
+function compareNum(a, op, b){
+  switch(op){
+    case '<': return a < b;
+    case '<=': return a <= b;
+    case '>': return a > b;
+    case '>=': return a >= b;
+    case '=': return a === b;
+    default: return true;
+  }
+}
+
+function bm25Score(tf, df, N, dl, avgdl, w){
+  if(tf <= 0) return 0;
+  const k1 = 1.2, b = 0.75;
+  const idf = Math.log(1 + (N - df + 0.5)/(df + 0.5));
+  return idf * ((tf*(k1+1)) / (tf + k1*(1 - b + b*(dl/avgdl)))) * (w || 1);
+}
+
+function searchScores(){
+  const q = (prefs.query||'').trim();
+  if(!q){ return { scores:null, filters:{} }; }
+
+  const {must, should, not, phrases, filters} = parseQuery(q);
+  const terms = [...must, ...should];
+
+  const expanded = new Set();
+  terms.forEach(tok=>{
+    expanded.add(tok);
+    expandSynonyms(tok).forEach(t=>expanded.add(t));
+    similarTokens(tok).forEach(t=>expanded.add(t));
+  });
+
+  const N = DATA.length;
+  const avgdl = [...SEARCH.doclens.values()].reduce((a,b)=>a+b,0) / Math.max(1,N);
+  const scores = new Map();
+  const addScore = (id,s)=>scores.set(id,(scores.get(id)||0)+s);
+
+  expanded.forEach(tok=>{
+    const posting = SEARCH.postings.get(tok);
+    if(!posting) return;
+    const df = (SEARCH.vocab.get(tok)||0);
+    for(const [id,fields] of posting.entries()){
+      const dl = SEARCH.doclens.get(id) || avgdl;
+      for(const [field,tf] of Object.entries(fields)){
+        const w = FIELD_WEIGHTS[field] || 1;
+        addScore(id, bm25Score(tf, df, N, dl, avgdl, w));
+      }
+    }
+  });
+
+  // phrase boost
+  phrases.forEach(ph=>{
+    const rx = new RegExp(`\\b${ph.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')}\\b`, 'i');
+    DATA.forEach(p=>{
+      if (rx.test(`${p.program} ${p.school} ${p.city} ${p.state} ${p.programType} ${p.desc||''}`)){
+        addScore(p.id, 3.0);
+      }
+    });
+  });
+
+  // NOT terms penalty
+  not.forEach(tok=>{
+    const posting = SEARCH.postings.get(tok);
+    if(!posting) return;
+    for(const id of posting.keys()){ addScore(id, -5.0); }
+  });
+
+  return { scores, filters };
+}
+
+function buildAiTopCard(p, pr){
+  return `
+    <article class="card">
+      <h3>${p.program}</h3>
+      <div>${p.school} • ${p.city}, ${p.state}</div>
+      <p>${p.desc || ''}</p>
+    </article>
+  `;
+}
   function card(p,isTop=false){ const t = tuitionOf(p,prefs); const savedNow = isSaved(p.id); const bucket = bucketFor(p); const {must, should, phrases} = parseQuery(prefs.query); const qTokens = [...must, ...should, ...phrases].map(x=>x.toString()); const tuitionLabel = prefs.tuitionType==='inState' ? `In-State${prefs.residencyState?` • ${prefs.residencyState}`:' • (fallback shown)'}` : (prefs.tuitionType==='outState'? `Out-of-State${prefs.residencyState?` • excl ${prefs.residencyState}`:''}` : 'International'); const minGpaText = fmtMinGpa(p.gpaMin); return `
       <article class="card" tabindex="0">
         <div class="row">
@@ -442,9 +562,9 @@
 
   function tuitionGuard(){ if (prefs.tuitionType==='inState' && !prefs.residencyState){ if (prefs.stateSelect) { prefs.residencyState = prefs.stateSelect; return {block:false, message:''}; } if (prefs.states && prefs.states.length===1) { prefs.residencyState = prefs.states[0]; return {block:false, message:''}; } return {block:false, message:'Tip: set your residency to compute true in-state tuition. Showing out-of-state numbers until then.'}; } return {block:false, message:''}; }
 
-  function filterData(){ const {scores, filters} = searchScores(); SEARCH.lastScores = scores; return DATA.filter(p=>{ const t = tuitionOf(p, prefs); const gKnown = isKnownMinGpa(p.gpaMin); const gpaOk  = !gKnown || p.gpaMin <= prefs.gpa + 0.05; const tOk    = (typeof t!== 'number') || (t <= prefs.budget * 1.4); const stemOk = !prefs.stem || p.stem; const aidOk  = !prefs.aid || (p.assistantship || p.scholarships); const areaOk = prefs.area==='any' || String(p.programType||'').toLowerCase().includes(prefs.area); let residencyOk = true; if (prefs.tuitionType==='inState'){ residencyOk = !prefs.residencyState || p.state === prefs.residencyState; } else if (prefs.tuitionType==='outState'){ residencyOk = !prefs.residencyState || p.state !== prefs.residencyState; } const stateSelectOk = !prefs.stateSelect || p.state === prefs.stateSelect; const statesOk = !prefs.states.length || prefs.states.includes(p.state); const advancedOk = fieldFilterPass(p, filters||{}); const textOk = (scores==null) || (scores && scores.has(p.id)); return gpaOk && tOk && stemOk && aidOk && areaOk && residencyOk && stateSelectOk && statesOk && advancedOk && textOk; }); }
+  function filterData(){ const {scores, filters} = searchScores(); SEARCH.lastScores = scores; return DATA.filter(p=>{ const t = tuitionOf(p, prefs); const gKnown = isKnownMinGpa(p.gpaMin); const gpaOk  = !gKnown || p.gpaMin <= prefs.gpa + 0.05; const tOk    = (typeof t!== 'number') || (t <= prefs.budget * 1.4); const stemOk = !prefs.stem || p.stem; const aidOk  = !prefs.aid || (p.assistantship || p.scholarships); const areaOk = prefs.area==='any' || p.programType === prefs.area; const waiverOk = prefs.waiver === 'any' || p.waiverType === prefs.waiver; let residencyOk = true; if (prefs.tuitionType==='inState'){ residencyOk = !prefs.residencyState || p.state === prefs.residencyState; } else if (prefs.tuitionType==='outState'){ residencyOk = !prefs.residencyState || p.state !== prefs.residencyState; } const stateSelectOk = !prefs.stateSelect || p.state === prefs.stateSelect; const statesOk = !prefs.states.length || prefs.states.includes(p.state); const advancedOk = fieldFilterPass(p, filters||{}); const textOk = (scores==null) || (scores && scores.has(p.id)); return gpaOk && tOk && stemOk && aidOk && areaOk && waiverOk && residencyOk && stateSelectOk && statesOk && advancedOk && textOk; }); }
 
-  function sortData(list){ if (prefs.sortBy==='popularity') return byPopularity(list); if (prefs.sortBy==='tuition') return list.slice().sort((a,b)=> (tuitionOf(a,prefs)||Infinity) - (tuitionOf(b,prefs)||Infinity)); if (prefs.sortBy==='gpa') return list.slice().sort((a,b)=> { const ga = isKnownMinGpa(a.gpaMin) ? a.gpaMin : Infinity; const gb = isKnownMinGpa(b.gpaMin) ? b.gpaMin : Infinity; return ga - gb; }); if (prefs.sortBy==='deadline') return list.slice().sort((a,b)=>{ const da = parseDate(a.deadline) || new Date('2999-12-31'); const db = parseDate(b.deadline) || new Date('2999-12-31'); return da - db; }); return list.map(p=>({p,score:scoreProgram(p)})).sort((a,b)=>b.score-a.score).map(x=>x.p); }
+  function sortData(list){ if (prefs.sortBy==='popularity') return byPopularity(list); if (prefs.sortBy==='tuition') return list.slice().sort((a,b)=> (tuitionOf(a,prefs)||Infinity) - (tuitionOf(b,prefs)||Infinity)); if (prefs.sortBy==='gpa') return list.slice().sort((a,b)=> { const ga = isKnownMinGpa(a.gpaMin) ? a.gpaMin : Infinity; const gb = isKnownMinGpa(b.gpaMin) ? b.gpaMin : Infinity; return ga - gb; }); if (prefs.sortBy==='deadline') return list.slice().sort((a,b)=>{ const da = parseDate(a.deadline) || new Date('2999-12-31'); const db = parseDate(b.deadline) || new Date('2999-12-31'); return da - db; }); if (prefs.sortBy==='match') return list.map(p=>({p,score:scoreProgram(p)})).sort((a,b)=>b.score-a.score).map(x=>x.p); return list; }
 
   function isSaved(id){ return saved.has(String(id)); }
   function updateSavedExport(){ $('#exportCsv').textContent = `Export shortlist CSV (${saved.size})`; $('#exportJson').textContent = `Export shortlist JSON (${saved.size})`; }
@@ -535,7 +655,7 @@
 
     const top = normalized[0];
     const compareHtml = buildAiComparisonTable(normalized.slice(0,3), prefs);
-    content.innerHTML = `${buildAiTopCard(top, prefs, [])}${compareHtml}`;
+    content.innerHTML = `${buildAiTopCard(top, prefs)}${compareHtml}`;
 
     // Primary action
     openLink.href = top.link || '#';
@@ -593,7 +713,15 @@
 
   function initEvents(){
     const rRender = debounce(()=>{ persistPrefs(); updateUrl(); render(); }, 60);
-
+    
+    document.getElementById('btnResetFilters').addEventListener('click', () => {
+  prefs = { ...DEFAULT_PREFS };
+  persistPrefs();
+  hydrateControls();
+  updateUrl();
+  render();
+  toast('Filters reset');
+});
     $('#gpa').addEventListener('input', e=>{ prefs.gpa=parseFloat(e.target.value); $('#gpaVal').textContent=prefs.gpa.toFixed(2); rRender(); });
     $('#budget').addEventListener('input', e=>{ prefs.budget=parseInt(e.target.value); $('#budgetVal').textContent=currency(prefs.budget); rRender(); });
     $$('.pill').forEach(b=>b.addEventListener('click', e=>{ $$('.pill').forEach(x=>{x.classList.remove('active'); x.setAttribute('aria-pressed','false');}); e.currentTarget.classList.add('active'); e.currentTarget.setAttribute('aria-pressed','true'); prefs.tuitionType=e.currentTarget.getAttribute('data-tuition'); rRender(); }));
